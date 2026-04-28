@@ -261,7 +261,54 @@ static int op_attach_collapse(struct AttachFunctionData *fdata, const struct Key
 }
 
 /**
+ * attach_apply_set_deleted - Apply the deleted flag to a working set of attachments
+ * @param[in]  apa         Working set of AttachPtr pointers
+ * @param[in]  deleted     true to mark as deleted, false to undelete
+ * @param[out] num_changed Number of attachments actually changed
+ * @param[out] num_blocked Number of attachments rejected (non-multipart)
+ *
+ * Only multipart attachments may be deleted. Non-multipart attachments in
+ * the working set are skipped and counted in @a num_blocked.
+ */
+static void attach_apply_set_deleted(struct AttachPtrArray *apa, bool deleted,
+                                     int *num_changed, int *num_blocked)
+{
+  int changed = 0;
+  int blocked = 0;
+
+  if (apa)
+  {
+    struct AttachPtr **app = NULL;
+    ARRAY_FOREACH(app, apa)
+    {
+      struct AttachPtr *ap = *app;
+      if (!ap || !ap->body)
+        continue;
+
+      if (deleted && (ap->parent_type != TYPE_MULTIPART))
+      {
+        blocked++;
+        continue;
+      }
+
+      ap->body->deleted = deleted;
+      changed++;
+    }
+  }
+
+  if (num_changed)
+    *num_changed = changed;
+  if (num_blocked)
+    *num_blocked = blocked;
+}
+
+/**
  * op_attach_delete - delete the current entry - Implements ::attach_function_t - @ingroup attach_function_api
+ *
+ * Supports repeat-count: `5<delete-entry>` deletes the current entry and the
+ * next 4 (only multipart attachments can be deleted; non-multipart entries in
+ * the working set are silently skipped). Overruns are silently capped at the
+ * end of the list.
  */
 static int op_attach_delete(struct AttachFunctionData *fdata, const struct KeyEvent *event)
 {
@@ -293,8 +340,6 @@ static int op_attach_delete(struct AttachFunctionData *fdata, const struct KeyEv
     mutt_message(_("Deletion of attachments from signed messages may invalidate the signature"));
   }
 
-  bool deleted = false;
-  bool blocked = false;
   struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
   if (aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix,
                        event->count) < 0)
@@ -303,41 +348,43 @@ static int op_attach_delete(struct AttachFunctionData *fdata, const struct KeyEv
     return FR_ERROR;
   }
 
-  struct AttachPtr **app = NULL;
-  ARRAY_FOREACH(app, &aa)
+  if (ARRAY_EMPTY(&aa))
   {
-    if ((*app)->parent_type == TYPE_MULTIPART)
-    {
-      (*app)->body->deleted = true;
-      deleted = true;
-    }
-    else
-    {
-      mutt_message(_("Only deletion of multipart attachments is supported"));
-      blocked = true;
-    }
+    ARRAY_FREE(&aa);
+    return FR_NO_ACTION;
   }
 
-  if (deleted)
-  {
-    if (ARRAY_SIZE(&aa) > 1)
-    {
-      menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
-    }
-    else
-    {
-      const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
-      const int index = menu_get_index(priv->menu) + 1;
-      if (c_resolve && (index < priv->menu->max))
-        menu_set_index(priv->menu, index);
-      else
-        menu_queue_redraw(priv->menu, MENU_REDRAW_CURRENT);
-    }
-  }
-
+  int changed = 0;
+  int blocked = 0;
+  attach_apply_set_deleted(&aa, true, &changed, &blocked);
+  const int num = ARRAY_SIZE(&aa);
   ARRAY_FREE(&aa);
 
-  return deleted ? FR_SUCCESS : (blocked ? FR_ERROR : FR_NO_ACTION);
+  if (blocked > 0)
+    mutt_message(_("Only deletion of multipart attachments is supported"));
+
+  if (changed == 0)
+    return blocked ? FR_ERROR : FR_NO_ACTION;
+
+  if (priv->menu->tag_prefix)
+  {
+    menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
+  }
+  else
+  {
+    const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
+    const int next = menu_get_index(priv->menu) + num;
+    if (c_resolve && (next < priv->menu->max))
+    {
+      menu_set_index(priv->menu, next);
+    }
+    else
+    {
+      menu_queue_redraw(priv->menu, (num > 1) ? MENU_REDRAW_INDEX : MENU_REDRAW_CURRENT);
+    }
+  }
+
+  return FR_SUCCESS;
 }
 
 /**
@@ -397,6 +444,9 @@ static int op_attach_save(struct AttachFunctionData *fdata, const struct KeyEven
 
 /**
  * op_attach_undelete - undelete the current entry - Implements ::attach_function_t - @ingroup attach_function_api
+ *
+ * Supports repeat-count: `5<undelete-entry>` undeletes the current entry and
+ * the next 4. Overruns are silently capped at the end of the list.
  */
 static int op_attach_undelete(struct AttachFunctionData *fdata, const struct KeyEvent *event)
 {
@@ -412,31 +462,34 @@ static int op_attach_undelete(struct AttachFunctionData *fdata, const struct Key
     return FR_ERROR;
   }
 
-  struct AttachPtr **app = NULL;
-  ARRAY_FOREACH(app, &aa)
+  if (ARRAY_EMPTY(&aa))
   {
-    (*app)->body->deleted = false;
+    ARRAY_FREE(&aa);
+    return FR_NO_ACTION;
   }
 
-  if (ARRAY_SIZE(&aa) > 1)
+  attach_apply_set_deleted(&aa, false, NULL, NULL);
+  const int num = ARRAY_SIZE(&aa);
+  ARRAY_FREE(&aa);
+
+  if (priv->menu->tag_prefix)
   {
     menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
   }
   else
   {
     const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
-    const int index = menu_get_index(priv->menu) + 1;
-    if (c_resolve && (index < priv->menu->max))
+    const int next = menu_get_index(priv->menu) + num;
+    if (c_resolve && (next < priv->menu->max))
     {
-      menu_set_index(priv->menu, index);
+      menu_set_index(priv->menu, next);
     }
     else
     {
-      menu_queue_redraw(priv->menu, MENU_REDRAW_CURRENT);
+      menu_queue_redraw(priv->menu, (num > 1) ? MENU_REDRAW_INDEX : MENU_REDRAW_CURRENT);
     }
   }
 
-  ARRAY_FREE(&aa);
   return FR_SUCCESS;
 }
 
