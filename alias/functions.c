@@ -192,6 +192,61 @@ static int op_create_alias(struct AliasFunctionData *fdata, const struct KeyEven
 }
 
 /**
+ * alias_add_selection - Build a working set of AliasView pointers for an action
+ * @param avpa   AliasView Array to populate
+ * @param mdata  Alias Menu data
+ * @param tagged Use tagged AliasViews (tag-prefix)
+ * @retval num Number of AliasViews added
+ *
+ * If @a tagged is true, the array is filled with the tagged AliasViews.
+ * Otherwise, the array is filled with just the current selection.
+ */
+static int alias_add_selection(struct AliasViewPtrArray *avpa,
+                               struct AliasMenuData *mdata, bool tagged)
+{
+  if (!avpa || !mdata)
+    return 0;
+
+  if (tagged)
+  {
+    struct AliasView *avp = NULL;
+    ARRAY_FOREACH(avp, &mdata->ava)
+    {
+      if (avp->is_tagged)
+        ARRAY_ADD(avpa, avp);
+    }
+  }
+  else
+  {
+    struct Menu *menu = mdata->menu;
+    const int index = menu_get_index(menu);
+    struct AliasView *av = ARRAY_GET(&mdata->ava, index);
+    if (av)
+      ARRAY_ADD(avpa, av);
+  }
+
+  return ARRAY_SIZE(avpa);
+}
+
+/**
+ * alias_apply_set_deleted - Apply the deleted flag to a working set of AliasViews
+ * @param avpa Working set of AliasView pointers
+ * @param deleted true to mark as deleted, false to undelete
+ */
+static void alias_apply_set_deleted(struct AliasViewPtrArray *avpa, bool deleted)
+{
+  if (!avpa)
+    return;
+
+  struct AliasView **avpp = NULL;
+  ARRAY_FOREACH(avpp, avpa)
+  {
+    if (*avpp)
+      (*avpp)->is_deleted = deleted;
+  }
+}
+
+/**
  * op_delete - delete the current entry - Implements ::alias_function_t - @ingroup alias_function_api
  *
  * This function handles:
@@ -202,31 +257,31 @@ static int op_delete(struct AliasFunctionData *fdata, const struct KeyEvent *eve
 {
   struct AliasMenuData *mdata = fdata->wdata;
   struct Menu *menu = mdata->menu;
-  const int op = event->op;
+  const bool deleted = (event->op == OP_DELETE);
+
+  struct AliasViewPtrArray avpa = ARRAY_HEAD_INITIALIZER;
+  alias_add_selection(&avpa, mdata, menu->tag_prefix);
+  if (ARRAY_EMPTY(&avpa))
+  {
+    ARRAY_FREE(&avpa);
+    return FR_NO_ACTION;
+  }
+  alias_apply_set_deleted(&avpa, deleted);
+  const int num = ARRAY_SIZE(&avpa);
+  ARRAY_FREE(&avpa);
 
   if (menu->tag_prefix)
   {
-    struct AliasView *avp = NULL;
-    ARRAY_FOREACH(avp, &mdata->ava)
-    {
-      if (avp->is_tagged)
-        avp->is_deleted = (op == OP_DELETE);
-    }
     menu_queue_redraw(menu, MENU_REDRAW_INDEX);
   }
   else
   {
-    int index = menu_get_index(menu);
-    struct AliasView *av = ARRAY_GET(&mdata->ava, index);
-    if (!av)
-      return FR_NO_ACTION;
-
-    av->is_deleted = (op == OP_DELETE);
-    menu_queue_redraw(menu, MENU_REDRAW_CURRENT);
+    const int index = menu_get_index(menu);
+    menu_queue_redraw(menu, (num > 1) ? MENU_REDRAW_INDEX : MENU_REDRAW_CURRENT);
     const bool c_resolve = cs_subset_bool(mdata->sub, "resolve");
-    if (c_resolve && (index < (menu->max - 1)))
+    if (c_resolve && ((index + num) < menu->max))
     {
-      menu_set_index(menu, index + 1);
+      menu_set_index(menu, index + num);
       menu_queue_redraw(menu, MENU_REDRAW_INDEX);
     }
   }

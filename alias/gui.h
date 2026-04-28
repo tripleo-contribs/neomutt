@@ -45,7 +45,8 @@ struct AliasView
   bool is_visible  : 1; ///< Is visible?
   struct Alias *alias;  ///< Alias
 };
-ARRAY_HEAD(AliasViewArray, struct AliasView);
+ARRAY_HEAD(AliasViewArray,    struct AliasView);
+ARRAY_HEAD(AliasViewPtrArray, struct AliasView *);
 
 /**
  * struct AliasMenuData - AliasView array wrapper with Pattern information - @extends Menu
