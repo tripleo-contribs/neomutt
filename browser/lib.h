@@ -102,8 +102,8 @@ struct FolderFile
 
   int gen;                 ///< Unique id, used for (un)sorting
 };
-
 ARRAY_HEAD(BrowserEntryArray, struct FolderFile);
+ARRAY_HEAD(FolderFilePtrArray, struct FolderFile *);
 
 /**
  * ExpandoDataFolder - Expando UIDs for the File Browser
