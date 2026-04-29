@@ -446,8 +446,9 @@ void mutt_pipe_message(struct Mailbox *m, struct EmailArray *ea)
 {
 }
 
-void mutt_print_message(struct Mailbox *m, struct EmailArray *ea)
+bool mutt_print_message(struct Mailbox *m, struct EmailArray *ea)
 {
+  return true;
 }
 
 int mutt_save_message(struct Mailbox *m, struct EmailArray *ea,

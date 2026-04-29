@@ -2713,13 +2713,16 @@ static int op_print(struct IndexFunctionData *fdata, const struct KeyEvent *even
     return FR_NO_ACTION;
   }
   const int num = ARRAY_SIZE(&ea);
-  mutt_print_message(shared->mailbox, &ea);
+  const bool printed = mutt_print_message(shared->mailbox, &ea);
   ARRAY_FREE(&ea);
+
+  if (printed && !priv->tag_prefix)
+    resolve_email(priv, shared, RESOLVE_NEXT_EMAIL, num);
 
   /* in an IMAP folder index with imap_peek=no, printing could change
    * new or old messages status to read. Redraw what's needed.  */
   const bool c_imap_peek = cs_subset_bool(shared->sub, "imap_peek");
-  if ((shared->mailbox->type == MUTT_IMAP) && !c_imap_peek)
+  if (printed && (shared->mailbox->type == MUTT_IMAP) && !c_imap_peek)
   {
     menu_queue_redraw(priv->menu,
                       ((priv->tag_prefix || (num > 1)) ? MENU_REDRAW_INDEX : MENU_REDRAW_CURRENT));
