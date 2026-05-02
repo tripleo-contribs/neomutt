@@ -110,7 +110,7 @@ static bool gui_gui_init(struct NeoMutt *n)
 
   MuttLogger = log_disp_curses;
   log_queue_flush(log_disp_curses);
-  log_queue_set_max_size(100);
+  log_queue_set_max_size(5000);
 
   return true;
 }
