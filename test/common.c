@@ -49,12 +49,11 @@
 #include "complete/lib.h"
 #include "key/lib.h"
 #include "send/lib.h"
-#include "color/module_data.h"
 #include "external.h"
-#include "key/module_data.h"
 #include "mx.h"
 
 struct AttachCtx;
+struct AttachPtrArray;
 struct Notify;
 struct PagerView;
 
@@ -317,8 +316,7 @@ const char *mutt_make_version(void)
   return "VERSION";
 }
 
-void attach_bounce_message(struct Mailbox *m, FILE *fp, struct AttachCtx *actx,
-                           struct Body *b)
+void attach_bounce_message(struct AttachPtrArray *aa, struct Mailbox *m)
 {
 }
 
@@ -341,21 +339,21 @@ int mutt_aside_thread(struct Email *e, bool forwards, bool subthreads)
   return 0;
 }
 
-void mutt_attach_forward(FILE *fp, struct Email *e, struct AttachCtx *actx,
-                         struct Body *b, SendFlags flags)
+void mutt_attach_forward(struct AttachPtrArray *aa, struct Email *e,
+                         struct AttachCtx *actx, SendFlags flags)
 {
 }
 
-void mutt_attach_mail_sender(struct AttachCtx *actx, struct Body *b)
+void mutt_attach_mail_sender(struct AttachPtrArray *aa)
 {
 }
 
-void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
-                       struct AttachCtx *actx, struct Body *b, SendFlags flags)
+void mutt_attach_reply(struct AttachPtrArray *aa, struct Mailbox *m,
+                       struct Email *e, struct AttachCtx *actx, SendFlags flags)
 {
 }
 
-void mutt_attach_resend(FILE *fp, struct Mailbox *m, struct AttachCtx *actx, struct Body *b)
+void mutt_attach_resend(struct AttachPtrArray *aa, struct Mailbox *m)
 {
 }
 

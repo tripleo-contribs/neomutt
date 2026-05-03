@@ -82,6 +82,8 @@ void test_fini(void);
   NEOMUTT_TEST_ITEM(test_mutt_array_api)                                       \
                                                                                \
   /* attach */                                                                 \
+  NEOMUTT_TEST_ITEM(test_aa_add_selection)                                     \
+  NEOMUTT_TEST_ITEM(test_ba_add_selection)                                     \
   NEOMUTT_TEST_ITEM(test_mutt_actx_add_attach)                                 \
   NEOMUTT_TEST_ITEM(test_mutt_actx_add_body)                                   \
   NEOMUTT_TEST_ITEM(test_mutt_actx_add_fp)                                     \
