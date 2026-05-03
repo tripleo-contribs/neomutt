@@ -30,6 +30,7 @@
 #include "mutt/lib.h"
 
 struct AttachCtx;
+struct AttachPtrArray;
 struct Body;
 struct ConfigSubset;
 struct Email;
@@ -61,9 +62,9 @@ enum SaveAttach
 
 int mutt_attach_display_loop(struct ConfigSubset *sub, struct Menu *menu, int op, struct Email *e, struct AttachCtx *actx, bool recv);
 
-void mutt_save_attachment_list (struct AttachCtx *actx, FILE *fp, bool tag, struct Body *b, struct Email *e, struct Menu *menu);
-void mutt_pipe_attachment_list (struct AttachCtx *actx, FILE *fp, bool tag, struct Body *b, bool filter);
-void mutt_print_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag, struct Body *b);
+void mutt_save_attachment_list (struct AttachPtrArray *aa, struct Email *e, struct Menu *menu);
+void mutt_pipe_attachment_list (struct AttachPtrArray *aa, bool filter);
+void mutt_print_attachment_list(struct AttachPtrArray *aa);
 
 int mutt_view_attachment(FILE *fp, struct Body *b, enum ViewAttachMode mode, struct Email *e, struct AttachCtx *actx, struct MuttWindow *win);
 

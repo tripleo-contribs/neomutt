@@ -608,40 +608,55 @@ static int next_sibling(struct AttachCtx *actx, int index)
 }
 
 /**
- * tagged_attachments_are_siblings - Check whether tagged attachments are siblings
- * @param e    Email
- * @param actx Attachment context
- * @retval true Tagged attachments are siblings
+ * body_array_contains - Does a selection contain a body?
+ * @param ba Selected attachments
+ * @param b  Body to find
+ * @retval true Body is selected
  */
-static bool tagged_attachments_are_siblings(struct Email *e, struct AttachCtx *actx)
+static bool body_array_contains(struct BodyArray *ba, const struct Body *b)
 {
-  if (!e || !actx)
+  struct Body **bp = NULL;
+  ARRAY_FOREACH(bp, ba)
+  {
+    if (*bp == b)
+      return true;
+  }
+
+  return false;
+}
+
+/**
+ * selected_attachments_are_siblings - Check whether selected attachments are siblings
+ * @param e  Email
+ * @param ba Selected attachments
+ * @retval true Selected attachments are siblings
+ */
+static bool selected_attachments_are_siblings(struct Email *e, struct BodyArray *ba)
+{
+  if (!e || !ba)
     return false;
 
   int level = -1;
   struct Body *parent = NULL;
-
-  for (int i = 0; i < actx->idxlen; i++)
+  struct Body **bp = NULL;
+  ARRAY_FOREACH(bp, ba)
   {
-    struct AttachPtr *ap = actx->idx[i];
-    if (!ap->body->tagged)
-      continue;
-
     struct Body *this_parent = NULL;
-    if (ap->level > 0)
+    struct Body *body = *bp;
+    if (body->aptr && (body->aptr->level > 0))
     {
-      if (!attach_body_parent(e->body, NULL, ap->body, &this_parent))
+      if (!attach_body_parent(e->body, NULL, body, &this_parent))
         return false;
     }
 
     if (level == -1)
     {
-      level = ap->level;
+      level = body->aptr ? body->aptr->level : 0;
       parent = this_parent;
       continue;
     }
 
-    if ((level != ap->level) || (parent != this_parent))
+    if ((level != (body->aptr ? body->aptr->level : 0)) || (parent != this_parent))
       return false;
   }
 
@@ -649,12 +664,23 @@ static bool tagged_attachments_are_siblings(struct Email *e, struct AttachCtx *a
 }
 
 /**
+ * selection_redraw_flags - Choose redraw flags for a selection
+ * @param count Number of selected attachments
+ * @retval redraw flags for the selection
+ */
+static MenuRedrawFlags selection_redraw_flags(size_t count)
+{
+  return (count > 1) ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT;
+}
+
+/**
  * move_attachment - Move attachments in the attachment list
  * @param shared Shared compose data
  * @param up     If true, move up, otherwise move down
+ * @param count  Repeat-count
  * @retval enum #FunctionRetval
  */
-static int move_attachment(struct ComposeSharedData *shared, bool up)
+static int move_attachment(struct ComposeSharedData *shared, bool up, int count)
 {
   struct AttachCtx *actx = shared->adata->actx;
   if (!check_count(actx))
@@ -667,13 +693,13 @@ static int move_attachment(struct ComposeSharedData *shared, bool up)
 
   struct Body *cur_body = cur_att->body;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, count);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
-  if (menu->tag_prefix && !tagged_attachments_are_siblings(shared->email, actx))
+  if ((ARRAY_SIZE(&ba) > 1) && !selected_attachments_are_siblings(shared->email, &ba))
   {
-    mutt_error(_("Tagged attachments must be siblings"));
+    mutt_error(_("Selected attachments must be siblings"));
     ARRAY_FREE(&ba);
     return FR_ERROR;
   }
@@ -688,7 +714,7 @@ static int move_attachment(struct ComposeSharedData *shared, bool up)
       const int previdx = prev_sibling(actx, index);
       if (previdx < 0)
         continue;
-      if (menu->tag_prefix && actx->idx[previdx]->body->tagged)
+      if (body_array_contains(&ba, actx->idx[previdx]->body))
         continue;
 
       compose_attach_swap(shared->email, actx, previdx, index);
@@ -704,7 +730,7 @@ static int move_attachment(struct ComposeSharedData *shared, bool up)
       const int nextidx = next_sibling(actx, index);
       if (nextidx < 0)
         continue;
-      if (menu->tag_prefix && actx->idx[nextidx]->body->tagged)
+      if (body_array_contains(&ba, actx->idx[nextidx]->body))
         continue;
 
       compose_attach_swap(shared->email, actx, index, nextidx);
@@ -735,13 +761,15 @@ done:
 }
 
 /**
- * group_attachments - Group tagged attachments into a multipart group
+ * group_attachments - Group selected attachments into a multipart group
  * @param  shared     Shared compose data
  * @param  subtype    MIME subtype
+ * @param  ba         Selected attachments
  * @retval FR_SUCCESS Success
  * @retval FR_ERROR   Failure
  */
-static int group_attachments(struct ComposeSharedData *shared, char *subtype)
+static int group_attachments(struct ComposeSharedData *shared, char *subtype,
+                             struct BodyArray *ba)
 {
   struct AttachCtx *actx = shared->adata->actx;
   int group_level = -1;
@@ -750,8 +778,7 @@ static int group_attachments(struct ComposeSharedData *shared, char *subtype)
   // Attachments to be grouped must have the same parent
   for (int i = 0; i < actx->idxlen; i++)
   {
-    // check if all tagged attachments are at same level
-    if (actx->idx[i]->body->tagged)
+    if (body_array_contains(ba, actx->idx[i]->body))
     {
       if (group_level == -1)
       {
@@ -791,7 +818,7 @@ static int group_attachments(struct ComposeSharedData *shared, char *subtype)
   // Can't group all attachments unless at top level
   if (bptr_parent)
   {
-    if (shared->adata->menu->num_tagged == attach_body_count(bptr_parent->parts, false))
+    if (ARRAY_SIZE(ba) == attach_body_count(bptr_parent->parts, false))
     {
       mutt_error(_("Can't leave group with only one attachment"));
       return FR_ERROR;
@@ -803,8 +830,8 @@ static int group_attachments(struct ComposeSharedData *shared, char *subtype)
   group->subtype = mutt_str_dup(subtype);
   group->encoding = ENC_7BIT;
 
-  struct Body *bptr_first = NULL;     // first tagged attachment
-  struct Body *bptr = NULL;           // current tagged attachment
+  struct Body *bptr_first = NULL;     // first selected attachment
+  struct Body *bptr = NULL;           // current selected attachment
   struct Body *group_parent = NULL;   // parent of group
   struct Body *group_previous = NULL; // previous body to group
   struct Body *group_part = NULL;     // current attachment in group
@@ -815,9 +842,9 @@ static int group_attachments(struct ComposeSharedData *shared, char *subtype)
   for (int i = 0; i < actx->idxlen; i++)
   {
     bptr = actx->idx[i]->body;
-    if (bptr->tagged)
+    if (body_array_contains(ba, bptr))
     {
-      // set group properties based on first tagged attachment
+      // set group properties based on first selected attachment
       if (!bptr_first)
       {
         group->disposition = bptr->disposition;
@@ -838,8 +865,11 @@ static int group_attachments(struct ComposeSharedData *shared, char *subtype)
         }
       }
 
-      shared->adata->menu->num_tagged--;
-      bptr->tagged = false;
+      if (bptr->tagged)
+      {
+        shared->adata->menu->num_tagged--;
+        bptr->tagged = false;
+      }
       bptr->aptr->level++;
       bptr->aptr->parent_type = TYPE_MULTIPART;
 
@@ -1216,19 +1246,23 @@ static int op_attach_detach(struct ComposeFunctionData *fdata, const struct KeyE
 
   struct Menu *menu = shared->adata->menu;
   int rc = FR_NO_ACTION;
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, actx, menu, menu->tag_prefix, event->count);
 
-  if (menu->tag_prefix)
+  if (ARRAY_SIZE(&aa) > 1)
   {
-    for (int i = actx->idxlen - 1; i >= 0; i--)
+    for (int i = ARRAY_SIZE(&aa) - 1; i >= 0; i--)
     {
-      struct AttachPtr *ap = actx->idx[i];
-      if (!ap->body->tagged)
+      struct AttachPtr **app = ARRAY_GET(&aa, i);
+      if (!app || !*app)
         continue;
+      struct AttachPtr *ap = *app;
 
       if (ap->unowned)
         ap->body->unlink = false;
 
-      if (delete_attachment(actx, i, fdata->n->sub) == 0)
+      const int index = body_index(actx, ap->body);
+      if ((index >= 0) && (delete_attachment(actx, index, fdata->n->sub) == 0))
         rc = FR_SUCCESS;
     }
 
@@ -1241,6 +1275,7 @@ static int op_attach_detach(struct ComposeFunctionData *fdata, const struct KeyE
           menu->num_tagged++;
       }
       update_menu(actx, menu, false);
+      ARRAY_FREE(&aa);
       return FR_ERROR;
     }
   }
@@ -1260,6 +1295,7 @@ static int op_attach_detach(struct ComposeFunctionData *fdata, const struct KeyE
           menu->num_tagged++;
       }
       update_menu(actx, menu, false);
+      ARRAY_FREE(&aa);
       return FR_ERROR;
     }
 
@@ -1281,6 +1317,7 @@ static int op_attach_detach(struct ComposeFunctionData *fdata, const struct KeyE
     shared->email->body = actx->idx[0]->body;
 
   exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
+  ARRAY_FREE(&aa);
   return rc;
 }
 
@@ -1300,7 +1337,7 @@ static int op_attach_edit_content_id(struct ComposeFunctionData *fdata,
   struct Buffer *buf = buf_pool_get();
   struct Buffer *cid = buf_pool_get();
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
   struct AttachPtr *cur_att = current_attachment(actx, menu);
 
@@ -1346,7 +1383,7 @@ static int op_attach_edit_content_id(struct ComposeFunctionData *fdata,
 
       if (changed)
       {
-        menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+        menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&ba)));
         notify_send(shared->email->notify, NT_EMAIL, NT_EMAIL_CHANGE_ATTACH, NULL);
         exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
         rc = FR_SUCCESS;
@@ -1391,7 +1428,7 @@ static int op_attach_edit_description(struct ComposeFunctionData *fdata,
   /* header names should not be translated */
   if (mw_get_field("Description: ", buf, MUTT_COMP_NO_FLAGS, HC_OTHER, NULL, NULL) == 0)
   {
-    ba_add_tagged(&ba, actx, menu);
+    ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
     bool changed = false;
     struct Body **bp = NULL;
@@ -1406,7 +1443,7 @@ static int op_attach_edit_description(struct ComposeFunctionData *fdata,
 
     if (changed)
     {
-      menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+      menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&ba)));
       exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
       rc = FR_SUCCESS;
     }
@@ -1443,7 +1480,7 @@ static int op_attach_edit_encoding(struct ComposeFunctionData *fdata,
     int enc = mutt_check_encoding(buf_string(buf));
     if ((enc != ENC_OTHER) && (enc != ENC_UUENCODED))
     {
-      ba_add_tagged(&ba, actx, menu);
+      ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
       bool changed = false;
       struct Body **bp = NULL;
@@ -1458,7 +1495,7 @@ static int op_attach_edit_encoding(struct ComposeFunctionData *fdata,
 
       if (changed)
       {
-        menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+        menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&ba)));
         notify_send(shared->email->notify, NT_EMAIL, NT_EMAIL_CHANGE_ATTACH, NULL);
         mutt_clear_error();
         exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
@@ -1497,7 +1534,7 @@ static int op_attach_edit_language(struct ComposeFunctionData *fdata,
   buf_strcpy(buf, cur_att->body->language);
   if (mw_get_field("Content-Language: ", buf, MUTT_COMP_NO_FLAGS, HC_OTHER, NULL, NULL) == 0)
   {
-    ba_add_tagged(&ba, actx, menu);
+    ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
     bool changed = false;
     struct Body **bp = NULL;
@@ -1512,7 +1549,7 @@ static int op_attach_edit_language(struct ComposeFunctionData *fdata,
 
     if (changed)
     {
-      menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+      menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&ba)));
       notify_send(shared->email->notify, NT_EMAIL, NT_EMAIL_CHANGE_ATTACH, NULL);
       exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
       rc = FR_SUCCESS;
@@ -1543,7 +1580,7 @@ static int op_attach_edit_mime(struct ComposeFunctionData *fdata, const struct K
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
@@ -1604,20 +1641,26 @@ static int op_attach_filter(struct ComposeFunctionData *fdata, const struct KeyE
     return FR_ERROR;
 
   struct Menu *menu = shared->adata->menu;
-  struct AttachPtr *cur_att = current_attachment(actx, menu);
-  if (cur_att->body->type == TYPE_MULTIPART)
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, actx, menu, menu->tag_prefix, event->count);
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, &aa)
   {
-    mutt_error(_("Can't filter multipart attachments"));
-    return FR_ERROR;
+    if ((*app)->body->type == TYPE_MULTIPART)
+    {
+      ARRAY_FREE(&aa);
+      mutt_error(_("Can't filter multipart attachments"));
+      return FR_ERROR;
+    }
   }
 
   const int op = event->op;
-  mutt_pipe_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body,
-                            (op == OP_ATTACH_FILTER));
+  mutt_pipe_attachment_list(&aa, (op == OP_ATTACH_FILTER));
   if (op == OP_ATTACH_FILTER) /* cte might have changed */
   {
-    menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+    menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&aa)));
   }
+  ARRAY_FREE(&aa);
   notify_send(shared->email->notify, NT_EMAIL, NT_EMAIL_CHANGE_ATTACH, NULL);
   exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
   return FR_SUCCESS;
@@ -1637,7 +1680,7 @@ static int op_attach_get_attachment(struct ComposeFunctionData *fdata,
   int rc = FR_ERROR;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
@@ -1667,78 +1710,100 @@ done:
 }
 
 /**
- * op_attach_group_alts - Group tagged attachments as 'multipart/alternative' - Implements ::compose_function_t - @ingroup compose_function_api
+ * op_attach_group_alts - Group selected attachments as 'multipart/alternative' - Implements ::compose_function_t - @ingroup compose_function_api
  */
 static int op_attach_group_alts(struct ComposeFunctionData *fdata, const struct KeyEvent *event)
 {
   struct ComposeSharedData *shared = fdata->shared;
-  if (shared->adata->menu->num_tagged < 2)
+  struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
+  ba_add_selection(&ba, shared->adata->actx, shared->adata->menu,
+                   shared->adata->menu->tag_prefix, event->count);
+  if (ARRAY_SIZE(&ba) < 2)
   {
-    mutt_error(_("Grouping 'alternatives' requires at least 2 tagged messages"));
+    ARRAY_FREE(&ba);
+    mutt_error(_("Grouping 'alternatives' requires at least 2 selected attachments"));
     return FR_ERROR;
   }
 
-  return group_attachments(shared, "alternative");
+  const int rc = group_attachments(shared, "alternative", &ba);
+  ARRAY_FREE(&ba);
+  return rc;
 }
 
 /**
- * op_attach_group_lingual - Group tagged attachments as 'multipart/multilingual' - Implements ::compose_function_t - @ingroup compose_function_api
+ * op_attach_group_lingual - Group selected attachments as 'multipart/multilingual' - Implements ::compose_function_t - @ingroup compose_function_api
  */
 static int op_attach_group_lingual(struct ComposeFunctionData *fdata,
                                    const struct KeyEvent *event)
 {
   struct ComposeSharedData *shared = fdata->shared;
-  if (shared->adata->menu->num_tagged < 2)
+  struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
+  ba_add_selection(&ba, shared->adata->actx, shared->adata->menu,
+                   shared->adata->menu->tag_prefix, event->count);
+  if (ARRAY_SIZE(&ba) < 2)
   {
-    mutt_error(_("Grouping 'multilingual' requires at least 2 tagged messages"));
+    ARRAY_FREE(&ba);
+    mutt_error(_("Grouping 'multilingual' requires at least 2 selected attachments"));
     return FR_ERROR;
   }
 
-  /* traverse to see whether all the parts have Content-Language: set */
   int tagged_with_lang_num = 0;
-  for (struct Body *b = shared->email->body; b; b = b->next)
-    if (b->tagged && b->language && *b->language)
+  struct Body **bp = NULL;
+  ARRAY_FOREACH(bp, &ba)
+  {
+    if ((*bp)->language && *(*bp)->language)
       tagged_with_lang_num++;
+  }
 
-  if (shared->adata->menu->num_tagged != tagged_with_lang_num)
+  if (ARRAY_SIZE(&ba) != tagged_with_lang_num)
   {
     if (query_yesorno(_("Not all parts have 'Content-Language' set, continue?"),
                       MUTT_YES) != MUTT_YES)
     {
+      ARRAY_FREE(&ba);
       mutt_message(_("Not sending this message"));
       return FR_ERROR;
     }
   }
 
-  return group_attachments(shared, "multilingual");
+  const int rc = group_attachments(shared, "multilingual", &ba);
+  ARRAY_FREE(&ba);
+  return rc;
 }
 
 /**
- * op_attach_group_related - Group tagged attachments as 'multipart/related' - Implements ::compose_function_t - @ingroup compose_function_api
+ * op_attach_group_related - Group selected attachments as 'multipart/related' - Implements ::compose_function_t - @ingroup compose_function_api
  */
 static int op_attach_group_related(struct ComposeFunctionData *fdata,
                                    const struct KeyEvent *event)
 {
   struct ComposeSharedData *shared = fdata->shared;
-  if (shared->adata->menu->num_tagged < 2)
+  struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
+  ba_add_selection(&ba, shared->adata->actx, shared->adata->menu,
+                   shared->adata->menu->tag_prefix, event->count);
+  if (ARRAY_SIZE(&ba) < 2)
   {
-    mutt_error(_("Grouping 'related' requires at least 2 tagged messages"));
+    ARRAY_FREE(&ba);
+    mutt_error(_("Grouping 'related' requires at least 2 selected attachments"));
     return FR_ERROR;
   }
 
-  // ensure Content-ID is set for tagged attachments
-  for (struct Body *b = shared->email->body; b; b = b->next)
+  // ensure Content-ID is set for selected attachments
+  struct Body **bp = NULL;
+  ARRAY_FOREACH(bp, &ba)
   {
-    if (!b->tagged || (b->type == TYPE_MULTIPART))
+    if ((*bp)->type == TYPE_MULTIPART)
       continue;
 
-    if (!b->content_id)
+    if (!(*bp)->content_id)
     {
-      b->content_id = gen_cid();
+      (*bp)->content_id = gen_cid();
     }
   }
 
-  return group_attachments(shared, "related");
+  const int rc = group_attachments(shared, "related", &ba);
+  ARRAY_FREE(&ba);
+  return rc;
 }
 
 /**
@@ -1747,8 +1812,8 @@ static int op_attach_group_related(struct ComposeFunctionData *fdata,
 static int op_attach_move_down(struct ComposeFunctionData *fdata, const struct KeyEvent *event)
 {
   struct ComposeSharedData *shared = fdata->shared;
-  if (shared->adata->menu->tag_prefix)
-    return move_attachment(shared, false);
+  if (shared->adata->menu->tag_prefix || (event->count > 1))
+    return move_attachment(shared, false, event->count);
 
   int index = menu_get_index(shared->adata->menu);
 
@@ -1807,8 +1872,8 @@ static int op_attach_move_down(struct ComposeFunctionData *fdata, const struct K
 static int op_attach_move_up(struct ComposeFunctionData *fdata, const struct KeyEvent *event)
 {
   struct ComposeSharedData *shared = fdata->shared;
-  if (shared->adata->menu->tag_prefix)
-    return move_attachment(shared, true);
+  if (shared->adata->menu->tag_prefix || (event->count > 1))
+    return move_attachment(shared, true, event->count);
 
   int index = menu_get_index(shared->adata->menu);
   if (index < 0)
@@ -1934,14 +1999,21 @@ static int op_attach_print(struct ComposeFunctionData *fdata, const struct KeyEv
     return FR_ERROR;
 
   struct Menu *menu = shared->adata->menu;
-  struct AttachPtr *cur_att = current_attachment(actx, menu);
-  if (cur_att->body->type == TYPE_MULTIPART)
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, actx, menu, menu->tag_prefix, event->count);
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, &aa)
   {
-    mutt_error(_("Can't print multipart attachments"));
-    return FR_ERROR;
+    if ((*app)->body->type == TYPE_MULTIPART)
+    {
+      ARRAY_FREE(&aa);
+      mutt_error(_("Can't print multipart attachments"));
+      return FR_ERROR;
+    }
   }
 
-  mutt_print_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body);
+  mutt_print_attachment_list(&aa);
+  ARRAY_FREE(&aa);
   /* no send2hook, since this doesn't modify the message */
   return FR_SUCCESS;
 }
@@ -1988,14 +2060,21 @@ static int op_attach_save(struct ComposeFunctionData *fdata, const struct KeyEve
     return FR_ERROR;
 
   struct Menu *menu = shared->adata->menu;
-  struct AttachPtr *cur_att = current_attachment(actx, menu);
-  if (cur_att->body->type == TYPE_MULTIPART)
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, actx, menu, menu->tag_prefix, event->count);
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, &aa)
   {
-    mutt_error(_("Can't save multipart attachments"));
-    return FR_ERROR;
+    if ((*app)->body->type == TYPE_MULTIPART)
+    {
+      ARRAY_FREE(&aa);
+      mutt_error(_("Can't save multipart attachments"));
+      return FR_ERROR;
+    }
   }
 
-  mutt_save_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body, NULL, menu);
+  mutt_save_attachment_list(&aa, NULL, menu);
+  ARRAY_FREE(&aa);
   /* no send2hook, since this doesn't modify the message */
   return FR_SUCCESS;
 }
@@ -2015,7 +2094,7 @@ static int op_attach_toggle_disposition(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
   struct Body **bp = NULL;
   ARRAY_FOREACH(bp, &ba)
@@ -2025,7 +2104,7 @@ static int op_attach_toggle_disposition(struct ComposeFunctionData *fdata,
   }
 
   if (rc == FR_SUCCESS)
-    menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+    menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&ba)));
 
   ARRAY_FREE(&ba);
   notify_send(shared->email->notify, NT_EMAIL, NT_EMAIL_CHANGE_ATTACH, NULL);
@@ -2046,7 +2125,7 @@ static int op_attach_toggle_recode(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
   struct Body **bp = NULL;
   ARRAY_FOREACH(bp, &ba)
@@ -2065,7 +2144,7 @@ static int op_attach_toggle_recode(struct ComposeFunctionData *fdata,
     return FR_ERROR;
   }
 
-  if (!menu->tag_prefix)
+  if (ARRAY_SIZE(&ba) == 1)
   {
     struct AttachPtr *cur_att = current_attachment(actx, menu);
     if (cur_att->body->noconv)
@@ -2078,7 +2157,7 @@ static int op_attach_toggle_recode(struct ComposeFunctionData *fdata,
     mutt_clear_error();
   }
 
-  menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
+  menu_queue_redraw(menu, selection_redraw_flags(ARRAY_SIZE(&ba)));
   ARRAY_FREE(&ba);
   exec_message_hook(NULL, shared->email, CMD_SEND2_HOOK);
   return FR_SUCCESS;
@@ -2098,7 +2177,7 @@ static int op_attach_toggle_unlink(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
 
   struct Body **bp = NULL;
   ARRAY_FOREACH(bp, &ba)
@@ -2192,7 +2271,7 @@ static int op_attach_update_encoding(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  ba_add_selection(&ba, actx, menu, menu->tag_prefix, event->count);
   if (ARRAY_EMPTY(&ba))
     goto done;
 

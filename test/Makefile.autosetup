@@ -49,7 +49,8 @@ ATTACH_OBJS	= test/attach/mutt_actx_add_attach.o \
 		  test/attach/mutt_actx_add_fp.o \
 		  test/attach/mutt_actx_entries_free.o \
 		  test/attach/mutt_actx_free.o \
-		  test/attach/mutt_actx_new.o
+		  test/attach/mutt_actx_new.o \
+		  test/attach/selection.o
 
 BASE64_OBJS	= test/base64/mutt_b64_buffer_decode.o \
 		  test/base64/mutt_b64_buffer_encode.o \

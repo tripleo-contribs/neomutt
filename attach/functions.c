@@ -212,50 +212,30 @@ static bool check_readonly(struct Mailbox *m)
 
 /**
  * recvattach_extract_pgp_keys - Extract PGP keys from attachments
- * @param actx Attachment context
- * @param menu Menu listing attachments
+ * @param aa Selected attachments
  */
-static void recvattach_extract_pgp_keys(struct AttachCtx *actx, struct Menu *menu)
+static void recvattach_extract_pgp_keys(struct AttachPtrArray *aa)
 {
-  if (menu->tag_prefix)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    for (int i = 0; i < actx->idxlen; i++)
-    {
-      if (actx->idx[i]->body->tagged)
-      {
-        crypt_pgp_extract_key_from_attachment(actx->idx[i]->fp, actx->idx[i]->body);
-      }
-    }
-  }
-  else
-  {
-    struct AttachPtr *cur_att = current_attachment(actx, menu);
-    crypt_pgp_extract_key_from_attachment(cur_att->fp, cur_att->body);
+    crypt_pgp_extract_key_from_attachment((*app)->fp, (*app)->body);
   }
 }
 
 /**
  * recvattach_pgp_check_traditional - Is the Attachment inline PGP?
- * @param actx Attachment to check
- * @param menu Menu listing Attachments
- * @retval 1 The (tagged) Attachment(s) are inline PGP
- *
- * @note If the menu->tagprefix is set, all the tagged attachments will be checked.
+ * @param aa Selected attachments
+ * @retval 1 Any selected Attachment is inline PGP
  */
-static int recvattach_pgp_check_traditional(struct AttachCtx *actx, struct Menu *menu)
+static int recvattach_pgp_check_traditional(struct AttachPtrArray *aa)
 {
   int rc = 0;
 
-  if (menu->tag_prefix)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    for (int i = 0; i < actx->idxlen; i++)
-      if (actx->idx[i]->body->tagged)
-        rc = rc || crypt_pgp_check_traditional(actx->idx[i]->fp, actx->idx[i]->body, true);
-  }
-  else
-  {
-    struct AttachPtr *cur_att = current_attachment(actx, menu);
-    rc = crypt_pgp_check_traditional(cur_att->fp, cur_att->body, true);
+    rc = rc || crypt_pgp_check_traditional((*app)->fp, (*app)->body, true);
   }
 
   return rc;
@@ -315,50 +295,47 @@ static int op_attach_delete(struct AttachFunctionData *fdata, const struct KeyEv
 
   bool deleted = false;
   bool blocked = false;
-  if (priv->menu->tag_prefix)
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  if (aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix,
+                       event->count) < 0)
   {
-    for (int i = 0; i < priv->menu->max; i++)
-    {
-      if (priv->actx->idx[i]->body->tagged)
-      {
-        if (priv->actx->idx[i]->parent_type == TYPE_MULTIPART)
-        {
-          priv->actx->idx[i]->body->deleted = true;
-          deleted = true;
-          menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
-        }
-        else
-        {
-          blocked = true;
-          mutt_message(_("Only deletion of multipart attachments is supported"));
-        }
-      }
-    }
+    ARRAY_FREE(&aa);
+    return FR_ERROR;
   }
-  else
+
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, &aa)
   {
-    struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-    if (cur_att->parent_type == TYPE_MULTIPART)
+    if ((*app)->parent_type == TYPE_MULTIPART)
     {
-      cur_att->body->deleted = true;
+      (*app)->body->deleted = true;
       deleted = true;
-      const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
-      const int index = menu_get_index(priv->menu) + 1;
-      if (c_resolve && (index < priv->menu->max))
-      {
-        menu_set_index(priv->menu, index);
-      }
-      else
-      {
-        menu_queue_redraw(priv->menu, MENU_REDRAW_CURRENT);
-      }
     }
     else
     {
-      blocked = true;
       mutt_message(_("Only deletion of multipart attachments is supported"));
+      blocked = true;
     }
   }
+
+  if (deleted)
+  {
+    if (ARRAY_SIZE(&aa) > 1)
+    {
+      menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
+    }
+    else
+    {
+      const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
+      const int index = menu_get_index(priv->menu) + 1;
+      if (c_resolve && (index < priv->menu->max))
+        menu_set_index(priv->menu, index);
+      else
+        menu_queue_redraw(priv->menu, MENU_REDRAW_CURRENT);
+    }
+  }
+
+  ARRAY_FREE(&aa);
 
   return deleted ? FR_SUCCESS : (blocked ? FR_ERROR : FR_NO_ACTION);
 }
@@ -380,9 +357,10 @@ static int op_attach_edit_type(struct AttachFunctionData *fdata, const struct Ke
 static int op_attach_pipe(struct AttachFunctionData *fdata, const struct KeyEvent *event)
 {
   struct AttachPrivateData *priv = fdata->priv;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_pipe_attachment_list(priv->actx, cur_att->fp, priv->menu->tag_prefix,
-                            cur_att->body, false);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_pipe_attachment_list(&aa, false);
+  ARRAY_FREE(&aa);
   return FR_SUCCESS;
 }
 
@@ -392,9 +370,10 @@ static int op_attach_pipe(struct AttachFunctionData *fdata, const struct KeyEven
 static int op_attach_print(struct AttachFunctionData *fdata, const struct KeyEvent *event)
 {
   struct AttachPrivateData *priv = fdata->priv;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_print_attachment_list(priv->actx, cur_att->fp, priv->menu->tag_prefix,
-                             cur_att->body);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_print_attachment_list(&aa);
+  ARRAY_FREE(&aa);
   return FR_SUCCESS;
 }
 
@@ -404,14 +383,15 @@ static int op_attach_print(struct AttachFunctionData *fdata, const struct KeyEve
 static int op_attach_save(struct AttachFunctionData *fdata, const struct KeyEvent *event)
 {
   struct AttachPrivateData *priv = fdata->priv;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_save_attachment_list(priv->actx, cur_att->fp, priv->menu->tag_prefix,
-                            cur_att->body, priv->actx->email, priv->menu);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_save_attachment_list(&aa, priv->actx->email, priv->menu);
 
   const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
   const int index = menu_get_index(priv->menu) + 1;
-  if (!priv->menu->tag_prefix && c_resolve && (index < priv->menu->max))
+  if ((ARRAY_SIZE(&aa) == 1) && c_resolve && (index < priv->menu->max))
     menu_set_index(priv->menu, index);
+  ARRAY_FREE(&aa);
   return FR_SUCCESS;
 }
 
@@ -424,21 +404,26 @@ static int op_attach_undelete(struct AttachFunctionData *fdata, const struct Key
   if (check_readonly(priv->mailbox))
     return FR_ERROR;
 
-  if (priv->menu->tag_prefix)
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  if (aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix,
+                       event->count) < 0)
   {
-    for (int i = 0; i < priv->menu->max; i++)
-    {
-      if (priv->actx->idx[i]->body->tagged)
-      {
-        priv->actx->idx[i]->body->deleted = false;
-        menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
-      }
-    }
+    ARRAY_FREE(&aa);
+    return FR_ERROR;
+  }
+
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, &aa)
+  {
+    (*app)->body->deleted = false;
+  }
+
+  if (ARRAY_SIZE(&aa) > 1)
+  {
+    menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
   }
   else
   {
-    struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-    cur_att->body->deleted = false;
     const bool c_resolve = cs_subset_bool(fdata->n->sub, "resolve");
     const int index = menu_get_index(priv->menu) + 1;
     if (c_resolve && (index < priv->menu->max))
@@ -451,6 +436,7 @@ static int op_attach_undelete(struct AttachFunctionData *fdata, const struct Key
     }
   }
 
+  ARRAY_FREE(&aa);
   return FR_SUCCESS;
 }
 
@@ -518,9 +504,10 @@ static int op_bounce_message(struct AttachFunctionData *fdata, const struct KeyE
   struct AttachPrivateData *priv = fdata->priv;
   if (check_attach(priv))
     return FR_ERROR;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  attach_bounce_message(priv->mailbox, cur_att->fp, priv->actx,
-                        priv->menu->tag_prefix ? NULL : cur_att->body);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  attach_bounce_message(&aa, priv->mailbox);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   return FR_SUCCESS;
 }
@@ -531,12 +518,14 @@ static int op_bounce_message(struct AttachFunctionData *fdata, const struct KeyE
 static int op_check_traditional(struct AttachFunctionData *fdata, const struct KeyEvent *event)
 {
   struct AttachPrivateData *priv = fdata->priv;
-  if (((WithCrypto & APPLICATION_PGP) != 0) &&
-      recvattach_pgp_check_traditional(priv->actx, priv->menu))
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  if (((WithCrypto & APPLICATION_PGP) != 0) && recvattach_pgp_check_traditional(&aa))
   {
     priv->actx->email->security = crypt_query(NULL);
     menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   }
+  ARRAY_FREE(&aa);
   return FR_SUCCESS;
 }
 
@@ -548,8 +537,10 @@ static int op_compose_to_sender(struct AttachFunctionData *fdata, const struct K
   struct AttachPrivateData *priv = fdata->priv;
   if (check_attach(priv))
     return FR_ERROR;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_attach_mail_sender(priv->actx, priv->menu->tag_prefix ? NULL : cur_att->body);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_attach_mail_sender(&aa);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   return FR_SUCCESS;
 }
@@ -585,7 +576,10 @@ static int op_extract_keys(struct AttachFunctionData *fdata, const struct KeyEve
   if (!(WithCrypto & APPLICATION_PGP))
     return FR_NO_ACTION;
 
-  recvattach_extract_pgp_keys(priv->actx, priv->menu);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  recvattach_extract_pgp_keys(&aa);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
 
   return FR_SUCCESS;
@@ -608,9 +602,10 @@ static int op_forward_message(struct AttachFunctionData *fdata, const struct Key
   struct AttachPrivateData *priv = fdata->priv;
   if (check_attach(priv))
     return FR_ERROR;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_attach_forward(cur_att->fp, priv->actx->email, priv->actx,
-                      priv->menu->tag_prefix ? NULL : cur_att->body, SEND_NO_FLAGS);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_attach_forward(&aa, priv->actx->email, priv->actx, SEND_NO_FLAGS);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   return FR_SUCCESS;
 }
@@ -663,9 +658,10 @@ static int op_reply(struct AttachFunctionData *fdata, const struct KeyEvent *eve
   else if (op == OP_LIST_REPLY)
     flags |= SEND_LIST_REPLY;
 
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_attach_reply(cur_att->fp, priv->mailbox, priv->actx->email, priv->actx,
-                    priv->menu->tag_prefix ? NULL : cur_att->body, flags);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_attach_reply(&aa, priv->mailbox, priv->actx->email, priv->actx, flags);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   return FR_SUCCESS;
 }
@@ -678,9 +674,10 @@ static int op_resend(struct AttachFunctionData *fdata, const struct KeyEvent *ev
   struct AttachPrivateData *priv = fdata->priv;
   if (check_attach(priv))
     return FR_ERROR;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_attach_resend(cur_att->fp, priv->mailbox, priv->actx,
-                     priv->menu->tag_prefix ? NULL : cur_att->body);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_attach_resend(&aa, priv->mailbox);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   return FR_SUCCESS;
 }
@@ -707,8 +704,10 @@ static int op_followup(struct AttachFunctionData *fdata, const struct KeyEvent *
       (query_quadoption(_("Reply by mail as poster prefers?"), fdata->n->sub,
                         "followup_to_poster") != MUTT_YES))
   {
-    mutt_attach_reply(cur_att->fp, priv->mailbox, priv->actx->email, priv->actx,
-                      priv->menu->tag_prefix ? NULL : cur_att->body, SEND_NEWS | SEND_REPLY);
+    struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+    aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+    mutt_attach_reply(&aa, priv->mailbox, priv->actx->email, priv->actx, SEND_NEWS | SEND_REPLY);
+    ARRAY_FREE(&aa);
     menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
     return FR_SUCCESS;
   }
@@ -724,9 +723,10 @@ static int op_forward_to_group(struct AttachFunctionData *fdata, const struct Ke
   struct AttachPrivateData *priv = fdata->priv;
   if (check_attach(priv))
     return FR_ERROR;
-  struct AttachPtr *cur_att = current_attachment(priv->actx, priv->menu);
-  mutt_attach_forward(cur_att->fp, priv->actx->email, priv->actx,
-                      priv->menu->tag_prefix ? NULL : cur_att->body, SEND_NEWS);
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  aa_add_selection(&aa, priv->actx, priv->menu, priv->menu->tag_prefix, event->count);
+  mutt_attach_forward(&aa, priv->actx->email, priv->actx, SEND_NEWS);
+  ARRAY_FREE(&aa);
   menu_queue_redraw(priv->menu, MENU_REDRAW_FULL);
   return FR_SUCCESS;
 }
