@@ -431,25 +431,27 @@ cleanup:
  * mutt_print_message - Print a message
  * @param m  Mailbox
  * @param ea Array of Emails to print
+ * @retval true The messages were printed
+ * @retval false Printing was cancelled or failed
  */
-void mutt_print_message(struct Mailbox *m, struct EmailArray *ea)
+bool mutt_print_message(struct Mailbox *m, struct EmailArray *ea)
 {
   if (!m || !ea)
-    return;
+    return false;
 
   const enum QuadOption c_print = cs_subset_quad(NeoMutt->sub, "print");
   const char *const c_print_command = cs_subset_string(NeoMutt->sub, "print_command");
   if (c_print && !c_print_command)
   {
     mutt_message(_("No printing command has been defined"));
-    return;
+    return false;
   }
 
   int msg_count = ARRAY_SIZE(ea);
   const char *msg = ngettext("Print message?", "Print tagged messages?", msg_count);
   if (query_quadoption(msg, NeoMutt->sub, "print") != MUTT_YES)
   {
-    return;
+    return false;
   }
 
   const bool c_print_decode = cs_subset_bool(NeoMutt->sub, "print_decode");
@@ -457,12 +459,12 @@ void mutt_print_message(struct Mailbox *m, struct EmailArray *ea)
   if (pipe_message(m, ea, c_print_command, c_print_decode, true, c_print_split, "\f") == 0)
   {
     mutt_message(ngettext("Message printed", "Messages printed", msg_count));
+    return true;
   }
-  else
-  {
-    mutt_message(ngettext("Message could not be printed",
-                          "Messages could not be printed", msg_count));
-  }
+
+  mutt_message(ngettext("Message could not be printed",
+                        "Messages could not be printed", msg_count));
+  return false;
 }
 
 /**

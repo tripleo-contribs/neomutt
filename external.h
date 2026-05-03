@@ -61,7 +61,7 @@ void mutt_display_address(struct Envelope *env);
 bool mutt_edit_content_type(struct Email *e, struct Body *b, FILE *fp);
 void mutt_enter_command(struct MuttWindow *win);
 void mutt_pipe_message(struct Mailbox *m, struct EmailArray *ea);
-void mutt_print_message(struct Mailbox *m, struct EmailArray *ea);
+bool mutt_print_message(struct Mailbox *m, struct EmailArray *ea);
 int  mutt_save_message(struct Mailbox *m, struct EmailArray *ea, enum MessageSaveOpt save_opt, enum MessageTransformOpt transform_opt);
 int  mutt_save_message_mbox(struct Mailbox *m_src, struct Email *e, enum MessageSaveOpt save_opt, enum MessageTransformOpt transform_opt, struct Mailbox *m_dst);
 bool mutt_select_sort(bool reverse);
