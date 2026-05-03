@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 struct AttachCtx;
+struct AttachPtrArray;
 struct Body;
 struct BodyArray;
 struct ConfigSubset;
@@ -44,6 +45,7 @@ struct AttachPtr *current_attachment(struct AttachCtx *actx, struct Menu *menu);
 void mutt_update_recvattach_menu(struct AttachCtx *actx, struct Menu *menu, bool init);
 void recvattach_edit_content_type(struct AttachCtx *actx, struct Menu *menu, struct Email *e);
 
-int ba_add_tagged(struct BodyArray *ba, struct AttachCtx *actx, struct Menu *menu);
+int aa_add_selection(struct AttachPtrArray *aa, struct AttachCtx *actx, struct Menu *menu, bool use_tagged, int count);
+int ba_add_selection(struct BodyArray *ba,      struct AttachCtx *actx, struct Menu *menu, bool use_tagged, int count);
 
 #endif /* MUTT_ATTACH_RECVATTACH_H */

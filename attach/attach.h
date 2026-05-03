@@ -25,6 +25,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include "mutt/lib.h"
 
 struct Body;
 
@@ -43,6 +44,7 @@ struct AttachPtr
   bool decrypted : 1;   ///< Not part of message as stored in the email->body
   bool collapsed : 1;   ///< Group is collapsed
 };
+ARRAY_HEAD(AttachPtrArray, struct AttachPtr *);
 
 /**
  * ExpandoDataAttach - Expando UIDs for Attachments

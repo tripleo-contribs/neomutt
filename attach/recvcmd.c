@@ -77,76 +77,74 @@ static bool check_msg(struct Body *b, bool err)
 }
 
 /**
- * check_all_msg - Are all the Attachments RFC822 messages?
- * @param actx Attachment context
- * @param b    Current message
+ * check_all_msg - Are all the selected Attachments RFC822 messages?
+ * @param aa   Selected attachments
  * @param err  If true, report errors
  * @retval true All parts are RFC822 messages
  */
-static bool check_all_msg(struct AttachCtx *actx, struct Body *b, bool err)
+static bool check_all_msg(struct AttachPtrArray *aa, bool err)
 {
-  if (b && !check_msg(b, err))
-    return false;
-  if (!b)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    for (short i = 0; i < actx->idxlen; i++)
-    {
-      if (actx->idx[i]->body->tagged)
-      {
-        if (!check_msg(actx->idx[i]->body, err))
-          return false;
-      }
-    }
+    if (!check_msg((*app)->body, err))
+      return false;
   }
   return true;
 }
 
 /**
- * check_can_decode - Can we decode all tagged attachments?
- * @param actx Attachment context
- * @param b    Body of email
- * @retval true All tagged attachments are decodable
+ * check_can_decode - Can we decode all selected attachments?
+ * @param aa Selected attachments
+ * @retval true All selected attachments are decodable
  */
-static bool check_can_decode(struct AttachCtx *actx, struct Body *b)
+static bool check_can_decode(struct AttachPtrArray *aa)
 {
-  if (b)
-    return mutt_can_decode(b);
-
-  for (short i = 0; i < actx->idxlen; i++)
-    if (actx->idx[i]->body->tagged && !mutt_can_decode(actx->idx[i]->body))
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
+  {
+    if (!mutt_can_decode((*app)->body))
       return false;
+  }
 
   return true;
 }
 
 /**
- * count_tagged - Count the number of tagged attachments
- * @param actx Attachment context
- * @retval num Number of tagged attachments
+ * aa_contains_body - Does the selection contain a Body?
+ * @param aa Selected attachments
+ * @param b  Candidate Body
+ * @retval true Body is selected
  */
-static short count_tagged(struct AttachCtx *actx)
+static bool aa_contains_body(struct AttachPtrArray *aa, const struct Body *b)
 {
-  short count = 0;
-  for (short i = 0; i < actx->idxlen; i++)
-    if (actx->idx[i]->body->tagged)
-      count++;
+  if (!b)
+    return false;
 
-  return count;
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
+  {
+    if ((*app)->body == b)
+      return true;
+  }
+
+  return false;
 }
 
 /**
- * count_tagged_children - Tagged children below a multipart/message attachment
+ * count_selected_children - Selected children below a multipart/message attachment
  * @param actx Attachment context
  * @param i    Index of first attachment
- * @retval num Number of tagged attachments
+ * @param aa   Selected attachments
+ * @retval num Number of selected attachments
  */
-static short count_tagged_children(struct AttachCtx *actx, short i)
+static short count_selected_children(struct AttachCtx *actx, short i, struct AttachPtrArray *aa)
 {
   short level = actx->idx[i]->level;
   short count = 0;
 
   while ((++i < actx->idxlen) && (level < actx->idx[i]->level))
-    if (actx->idx[i]->body->tagged)
+    if (aa_contains_body(aa, actx->idx[i]->body))
       count++;
 
   return count;
@@ -154,18 +152,15 @@ static short count_tagged_children(struct AttachCtx *actx, short i)
 
 /**
  * attach_bounce_message - Bounce function, from the attachment menu
- * @param m    Mailbox
- * @param fp   Handle of message
- * @param actx Attachment context
- * @param b    Body of email
+ * @param aa Selected attachments
+ * @param m  Mailbox
  */
-void attach_bounce_message(struct Mailbox *m, FILE *fp, struct AttachCtx *actx,
-                           struct Body *b)
+void attach_bounce_message(struct AttachPtrArray *aa, struct Mailbox *m)
 {
-  if (!m || !fp || !actx)
+  if (!m || ARRAY_EMPTY(aa))
     return;
 
-  if (!check_all_msg(actx, b, true))
+  if (!check_all_msg(aa, true))
     return;
 
   struct AddressList al = TAILQ_HEAD_INITIALIZER(al);
@@ -174,36 +169,23 @@ void attach_bounce_message(struct Mailbox *m, FILE *fp, struct AttachCtx *actx,
 
   /* RFC5322 mandates a From: header, so warn before bouncing
    * messages without one */
-  if (b)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (TAILQ_EMPTY(&b->email->env->from))
+    if (TAILQ_EMPTY(&(*app)->body->email->env->from))
     {
       mutt_error(_("Warning: message contains no From: header"));
       mutt_clear_error();
-    }
-  }
-  else
-  {
-    for (short i = 0; i < actx->idxlen; i++)
-    {
-      if (actx->idx[i]->body->tagged)
-      {
-        if (TAILQ_EMPTY(&actx->idx[i]->body->email->env->from))
-        {
-          mutt_error(_("Warning: message contains no From: header"));
-          mutt_clear_error();
-          break;
-        }
-      }
+      break;
     }
   }
 
   /* one or more messages? */
-  int num_msg = b ? 1 : count_tagged(actx);
+  const int num_msg = ARRAY_SIZE(aa);
   if (num_msg == 1)
     buf_strcpy(prompt, _("Bounce message to: "));
   else
-    buf_strcpy(prompt, _("Bounce tagged messages to: "));
+    buf_strcpy(prompt, _("Bounce messages to: "));
 
   if ((mw_get_field(buf_string(prompt), buf, MUTT_COMP_NO_FLAGS, HC_ALIAS,
                     &CompleteAliasOps, NULL) != 0) ||
@@ -246,22 +228,11 @@ void attach_bounce_message(struct Mailbox *m, FILE *fp, struct AttachCtx *actx,
   msgwin_clear_text(NULL);
 
   int rc = 0;
-  if (b)
+  ARRAY_FOREACH(app, aa)
   {
-    rc = mutt_bounce_message(fp, m, b->email, &al, NeoMutt->sub);
-  }
-  else
-  {
-    for (short i = 0; i < actx->idxlen; i++)
+    if (mutt_bounce_message((*app)->fp, m, (*app)->body->email, &al, NeoMutt->sub))
     {
-      if (actx->idx[i]->body->tagged)
-      {
-        if (mutt_bounce_message(actx->idx[i]->fp, m, actx->idx[i]->body->email,
-                                &al, NeoMutt->sub))
-        {
-          rc = 1;
-        }
-      }
+      rc = 1;
     }
   }
 
@@ -278,54 +249,42 @@ done:
 
 /**
  * mutt_attach_resend - Resend-message, from the attachment menu
- * @param fp   File containing email
- * @param m    Current mailbox
- * @param actx Attachment context
- * @param b    Attachment
+ * @param aa Selected attachments
+ * @param m  Current mailbox
  */
-void mutt_attach_resend(FILE *fp, struct Mailbox *m, struct AttachCtx *actx, struct Body *b)
+void mutt_attach_resend(struct AttachPtrArray *aa, struct Mailbox *m)
 {
-  if (!check_all_msg(actx, b, true))
+  if (!check_all_msg(aa, true))
     return;
 
-  if (b)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    mutt_resend_message(fp, m, b->email, NeoMutt->sub);
-  }
-  else
-  {
-    for (short i = 0; i < actx->idxlen; i++)
-    {
-      if (actx->idx[i]->body->tagged)
-      {
-        mutt_resend_message(actx->idx[i]->fp, m, actx->idx[i]->body->email,
-                            NeoMutt->sub);
-      }
-    }
+    mutt_resend_message((*app)->fp, m, (*app)->body->email, NeoMutt->sub);
   }
 }
 
 /**
- * find_common_parent - Find a common parent message for the tagged attachments
+ * find_common_parent - Find a common parent message for the selected attachments
  * @param actx    Attachment context
- * @param nattach Number of tagged attachments
+ * @param aa      Selected attachments
  * @retval ptr Parent attachment
  * @retval NULL Failure, no common parent
  */
-static struct AttachPtr *find_common_parent(struct AttachCtx *actx, short nattach)
+static struct AttachPtr *find_common_parent(struct AttachCtx *actx, struct AttachPtrArray *aa)
 {
   short i;
-  short nchildren;
+  const short nattach = ARRAY_SIZE(aa);
 
   for (i = 0; i < actx->idxlen; i++)
-    if (actx->idx[i]->body->tagged)
+    if (aa_contains_body(aa, actx->idx[i]->body))
       break;
 
   while (--i >= 0)
   {
     if (mutt_is_message_type(actx->idx[i]->body->type, actx->idx[i]->body->subtype))
     {
-      nchildren = count_tagged_children(actx, i);
+      const short nchildren = count_selected_children(actx, i, aa);
       if (nchildren == nattach)
         return actx->idx[i];
     }
@@ -360,19 +319,21 @@ static int is_parent(short i, struct AttachCtx *actx, const struct Body *b)
 }
 
 /**
- * find_parent - Find the parent of an Attachment
- * @param actx    Attachment context
- * @param b       Attachment (OPTIONAL)
- * @param nattach Use the nth attachment
+ * find_parent - Find the parent of a selected Attachment set
+ * @param actx Attachment context
+ * @param aa   Selected attachments
  * @retval ptr  Parent attachment
  * @retval NULL No parent exists
  */
-static struct AttachPtr *find_parent(struct AttachCtx *actx, struct Body *b, short nattach)
+static struct AttachPtr *find_parent(struct AttachCtx *actx, struct AttachPtrArray *aa)
 {
   struct AttachPtr *parent = NULL;
+  const short nattach = ARRAY_SIZE(aa);
 
-  if (b)
+  if (nattach == 1)
   {
+    struct AttachPtr **app = ARRAY_GET(aa, 0);
+    struct Body *b = app ? (*app)->body : NULL;
     for (short i = 0; i < actx->idxlen; i++)
     {
       if (mutt_is_message_type(actx->idx[i]->body->type, actx->idx[i]->body->subtype) &&
@@ -386,7 +347,7 @@ static struct AttachPtr *find_parent(struct AttachCtx *actx, struct Body *b, sho
   }
   else if (nattach)
   {
-    parent = find_common_parent(actx, nattach);
+    parent = find_common_parent(actx, aa);
   }
 
   return parent;
@@ -440,20 +401,21 @@ static void include_header(bool quote, FILE *fp_in, struct Email *e,
 /**
  * copy_problematic_attachments - Attach the body parts which can't be decoded
  * @param[out] last  Body pointer to update
- * @param[in]  actx  Attachment context
+ * @param[in]  aa    Selected attachments
  * @param[in]  force If true, attach parts that can't be decoded
  * @retval ptr Pointer to last Body part
  *
  * This code is shared by forwarding and replying.
  */
 static struct Body **copy_problematic_attachments(struct Body **last,
-                                                  struct AttachCtx *actx, bool force)
+                                                  struct AttachPtrArray *aa, bool force)
 {
-  for (short i = 0; i < actx->idxlen; i++)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (actx->idx[i]->body->tagged && (force || !mutt_can_decode(actx->idx[i]->body)))
+    if (force || !mutt_can_decode((*app)->body))
     {
-      if (mutt_body_copy(actx->idx[i]->fp, last, actx->idx[i]->body) == -1)
+      if (mutt_body_copy((*app)->fp, last, (*app)->body) == -1)
         return NULL; /* XXXXX - may lead to crashes */
       last = &((*last)->next);
     }
@@ -463,16 +425,14 @@ static struct Body **copy_problematic_attachments(struct Body **last,
 
 /**
  * attach_forward_bodies - Forward one or several MIME bodies
- * @param fp      File to read from
- * @param e       Email
- * @param actx    Attachment Context
- * @param b       Body of email
- * @param nattach Number of tagged attachments
+ * @param e    Email
+ * @param actx Attachment Context
+ * @param aa   Selected attachments
  *
  * (non-message types)
  */
-static void attach_forward_bodies(FILE *fp, struct Email *e, struct AttachCtx *actx,
-                                  struct Body *b, short nattach)
+static void attach_forward_bodies(struct Email *e, struct AttachCtx *actx,
+                                  struct AttachPtrArray *aa)
 {
   bool mime_fwd_all = false;
   bool mime_fwd_any = true;
@@ -481,11 +441,16 @@ static void attach_forward_bodies(FILE *fp, struct Email *e, struct AttachCtx *a
   enum QuadOption ans = MUTT_NO;
   struct Buffer *tempfile = NULL;
   struct Buffer *prefix = buf_pool_get();
+  const short nattach = ARRAY_SIZE(aa);
+  struct AttachPtr **first = ARRAY_GET(aa, 0);
+  struct AttachPtr *current = first ? *first : NULL;
+  struct Body *b = current ? current->body : NULL;
+  FILE *fp = current ? current->fp : NULL;
 
   /* First, find the parent message.
    * Note: This could be made an option by just
    * putting the following lines into an if block.  */
-  struct AttachPtr *parent = find_parent(actx, b, nattach);
+  struct AttachPtr *parent = find_parent(actx, aa);
   if (parent)
   {
     e_parent = parent->body->email;
@@ -553,9 +518,9 @@ static void attach_forward_bodies(FILE *fp, struct Email *e, struct AttachCtx *a
 
   /* shortcut MIMEFWDREST when there is only one attachment.
    * Is this intuitive?  */
-  if (!mime_fwd_all && !b && (nattach > 1) && !check_can_decode(actx, b))
+  if (!mime_fwd_all && (nattach > 1) && !check_can_decode(aa))
   {
-    ans = query_quadoption(_("Can't decode all tagged attachments.  MIME-forward the others?"),
+    ans = query_quadoption(_("Can't decode all selected attachments.  MIME-forward the others?"),
                            NeoMutt->sub, "mime_forward_rest");
     if (ans == MUTT_ABORT)
       goto bail;
@@ -577,7 +542,7 @@ static void attach_forward_bodies(FILE *fp, struct Email *e, struct AttachCtx *a
   /* where do we append new MIME parts? */
   struct Body **last = &e_tmp->body;
 
-  if (b)
+  if (nattach == 1)
   {
     /* single body case */
 
@@ -599,18 +564,19 @@ static void attach_forward_bodies(FILE *fp, struct Email *e, struct AttachCtx *a
 
     if (!mime_fwd_all)
     {
-      for (int i = 0; i < actx->idxlen; i++)
+      struct AttachPtr **app = NULL;
+      ARRAY_FOREACH(app, aa)
       {
-        if (actx->idx[i]->body->tagged && mutt_can_decode(actx->idx[i]->body))
+        if (mutt_can_decode((*app)->body))
         {
-          state.fp_in = actx->idx[i]->fp;
-          mutt_body_handler(actx->idx[i]->body, &state);
+          state.fp_in = (*app)->fp;
+          mutt_body_handler((*app)->body, &state);
           state_putc(&state, '\n');
         }
       }
     }
 
-    if (mime_fwd_any && !copy_problematic_attachments(last, actx, mime_fwd_all))
+    if (mime_fwd_any && !copy_problematic_attachments(last, aa, mime_fwd_all))
       goto bail;
   }
 
@@ -643,9 +609,7 @@ bail:
 
 /**
  * attach_forward_msgs - Forward one or several message-type attachments
- * @param fp    File handle to attachment
- * @param actx  Attachment Context
- * @param b     Attachment to forward (OPTIONAL)
+ * @param aa    Selected attachments
  * @param flags Send mode, see #SendFlags
  *
  * This is different from the previous function since we want to mimic the
@@ -655,9 +619,16 @@ bail:
  * context structure to find messages, while, on the attachment menu, messages
  * are referenced through the attachment index.
  */
-static void attach_forward_msgs(FILE *fp, struct AttachCtx *actx, struct Body *b, SendFlags flags)
+static void attach_forward_msgs(struct AttachPtrArray *aa, SendFlags flags)
 {
-  struct Email *e_cur = NULL;
+  struct AttachPtr **first = ARRAY_GET(aa, 0);
+  if (!first)
+    return;
+
+  struct AttachPtr *current = *first;
+  FILE *fp = current->fp;
+  struct Body *b = current->body;
+  struct Email *e_cur = current->body->email;
   struct Email *e_tmp = NULL;
   enum QuadOption ans;
   struct Body **last = NULL;
@@ -665,22 +636,6 @@ static void attach_forward_msgs(FILE *fp, struct AttachCtx *actx, struct Body *b
   FILE *fp_tmp = NULL;
 
   CopyHeaderFlags chflags = CH_DECODE;
-
-  if (b)
-  {
-    e_cur = b->email;
-  }
-  else
-  {
-    for (short i = 0; i < actx->idxlen; i++)
-    {
-      if (actx->idx[i]->body->tagged)
-      {
-        e_cur = actx->idx[i]->body->email;
-        break;
-      }
-    }
-  }
 
   e_tmp = email_new();
   e_tmp->env = mutt_env_new();
@@ -721,7 +676,7 @@ static void attach_forward_msgs(FILE *fp, struct AttachCtx *actx, struct Body *b
       }
     }
 
-    if (b)
+    if (ARRAY_SIZE(aa) == 1)
     {
       mutt_forward_intro(b->email, fp_tmp, NeoMutt->sub);
       mutt_copy_message_fp(fp_tmp, fp, b->email, cmflags, chflags, 0);
@@ -729,15 +684,12 @@ static void attach_forward_msgs(FILE *fp, struct AttachCtx *actx, struct Body *b
     }
     else
     {
-      for (short i = 0; i < actx->idxlen; i++)
+      struct AttachPtr **app = NULL;
+      ARRAY_FOREACH(app, aa)
       {
-        if (actx->idx[i]->body->tagged)
-        {
-          mutt_forward_intro(actx->idx[i]->body->email, fp_tmp, NeoMutt->sub);
-          mutt_copy_message_fp(fp_tmp, actx->idx[i]->fp,
-                               actx->idx[i]->body->email, cmflags, chflags, 0);
-          mutt_forward_trailer(actx->idx[i]->body->email, fp_tmp, NeoMutt->sub);
-        }
+        mutt_forward_intro((*app)->body->email, fp_tmp, NeoMutt->sub);
+        mutt_copy_message_fp(fp_tmp, (*app)->fp, (*app)->body->email, cmflags, chflags, 0);
+        mutt_forward_trailer((*app)->body->email, fp_tmp, NeoMutt->sub);
       }
     }
     mutt_file_fclose(&fp_tmp);
@@ -745,19 +697,17 @@ static void attach_forward_msgs(FILE *fp, struct AttachCtx *actx, struct Body *b
   else if (ans == MUTT_YES) /* do MIME encapsulation - we don't need to do much here */
   {
     last = &e_tmp->body;
-    if (b)
+    if (ARRAY_SIZE(aa) == 1)
     {
       mutt_body_copy(fp, last, b);
     }
     else
     {
-      for (short i = 0; i < actx->idxlen; i++)
+      struct AttachPtr **app = NULL;
+      ARRAY_FOREACH(app, aa)
       {
-        if (actx->idx[i]->body->tagged)
-        {
-          mutt_body_copy(actx->idx[i]->fp, last, actx->idx[i]->body);
-          last = &((*last)->next);
-        }
+        mutt_body_copy((*app)->fp, last, (*app)->body);
+        last = &((*last)->next);
       }
     }
   }
@@ -779,31 +729,29 @@ cleanup:
 }
 
 /**
- * mutt_attach_forward - Forward an Attachment
- * @param fp    Handle to the attachment
+ * mutt_attach_forward - Forward selected attachments
+ * @param aa    Selected attachments
  * @param e     Email
  * @param actx  Attachment Context
- * @param b     Current message
  * @param flags Send mode, see #SendFlags
  */
-void mutt_attach_forward(FILE *fp, struct Email *e, struct AttachCtx *actx,
-                         struct Body *b, SendFlags flags)
+void mutt_attach_forward(struct AttachPtrArray *aa, struct Email *e,
+                         struct AttachCtx *actx, SendFlags flags)
 {
-  if (check_all_msg(actx, b, false))
+  if (check_all_msg(aa, false))
   {
-    attach_forward_msgs(fp, actx, b, flags);
+    attach_forward_msgs(aa, flags);
   }
   else
   {
-    const short nattach = count_tagged(actx);
-    attach_forward_bodies(fp, e, actx, b, nattach);
+    attach_forward_bodies(e, actx, aa);
   }
 }
 
 /**
  * attach_reply_envelope_defaults - Create the envelope defaults for a reply
  * @param env    Envelope to fill in
- * @param actx   Attachment Context
+ * @param aa     Selected attachments
  * @param parent Parent Email
  * @param flags  Flags, see #SendFlags
  * @retval  0 Success
@@ -811,15 +759,15 @@ void mutt_attach_forward(FILE *fp, struct Email *e, struct AttachCtx *actx,
  *
  * This function can be invoked in two ways.
  *
- * Either, parent is NULL.  In this case, all tagged bodies are of a message type,
+ * Either, parent is NULL.  In this case, all selected bodies are of a message type,
  * and the header information is fetched from them.
  *
- * Or, parent is non-NULL.  In this case, cur is the common parent of all the
- * tagged attachments.
+ * Or, parent is non-NULL.  In this case, parent is the common parent of all the
+ * selected attachments.
  *
  * Note that this code is horribly similar to envelope_defaults() from send.c.
  */
-static int attach_reply_envelope_defaults(struct Envelope *env, struct AttachCtx *actx,
+static int attach_reply_envelope_defaults(struct Envelope *env, struct AttachPtrArray *aa,
                                           struct Email *parent, SendFlags flags)
 {
   struct Envelope *curenv = NULL;
@@ -832,20 +780,18 @@ static int attach_reply_envelope_defaults(struct Envelope *env, struct AttachCtx
   }
   else
   {
-    for (short i = 0; i < actx->idxlen; i++)
+    struct AttachPtr **app = NULL;
+    ARRAY_FOREACH(app, aa)
     {
-      if (actx->idx[i]->body->tagged)
-      {
-        e = actx->idx[i]->body->email;
-        curenv = e->env;
-        break;
-      }
+      e = (*app)->body->email;
+      curenv = e->env;
+      break;
     }
   }
 
   if (!curenv || !e)
   {
-    mutt_error(_("Can't find any tagged messages"));
+    mutt_error(_("Can't find any selected messages"));
     return -1;
   }
 
@@ -866,11 +812,10 @@ static int attach_reply_envelope_defaults(struct Envelope *env, struct AttachCtx
     }
     else
     {
-      for (short i = 0; i < actx->idxlen; i++)
+      struct AttachPtr **app = NULL;
+      ARRAY_FOREACH(app, aa)
       {
-        if (actx->idx[i]->body->tagged &&
-            (mutt_fetch_recips(env, actx->idx[i]->body->email->env, flags,
-                               NeoMutt->sub) == -1))
+        if (mutt_fetch_recips(env, (*app)->body->email->env, flags, NeoMutt->sub) == -1)
         {
           return -1;
         }
@@ -893,13 +838,10 @@ static int attach_reply_envelope_defaults(struct Envelope *env, struct AttachCtx
   }
   else
   {
-    for (short i = 0; i < actx->idxlen; i++)
+    struct AttachPtr **app = NULL;
+    ARRAY_FOREACH(app, aa)
     {
-      if (actx->idx[i]->body->tagged)
-      {
-        mutt_add_to_reference_headers(env, actx->idx[i]->body->email->env,
-                                      NeoMutt->sub);
-      }
+      mutt_add_to_reference_headers(env, (*app)->body->email->env, NeoMutt->sub);
     }
   }
 
@@ -935,19 +877,25 @@ static void attach_include_reply(FILE *fp, FILE *fp_tmp, struct Email *e)
 
 /**
  * mutt_attach_reply - Attach a reply
- * @param fp    File handle to reply
+ * @param aa    Selected attachments
  * @param m     Mailbox
  * @param e     Email
  * @param actx  Attachment Context
- * @param b     Current message
  * @param flags Send mode, see #SendFlags
  */
-void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
-                       struct AttachCtx *actx, struct Body *b, SendFlags flags)
+void mutt_attach_reply(struct AttachPtrArray *aa, struct Mailbox *m,
+                       struct Email *e, struct AttachCtx *actx, SendFlags flags)
 {
   bool mime_reply_any = false;
 
-  short nattach = 0;
+  const short nattach = ARRAY_SIZE(aa);
+  struct AttachPtr **first = ARRAY_GET(aa, 0);
+  if (!first)
+    return;
+
+  struct AttachPtr *current = *first;
+  FILE *fp = current->fp;
+  struct Body *b = current->body;
   struct AttachPtr *parent = NULL;
   struct Email *e_parent = NULL;
   FILE *fp_parent = NULL;
@@ -965,10 +913,9 @@ void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
 
   /* Determine the parent message for the reply: either the selected
    * attachment's parent or the top-level email if not nested */
-  if (!check_all_msg(actx, b, false))
+  if (!check_all_msg(aa, false))
   {
-    nattach = count_tagged(actx);
-    parent = find_parent(actx, b, nattach);
+    parent = find_parent(actx, aa);
     if (parent)
     {
       e_parent = parent->body->email;
@@ -982,9 +929,9 @@ void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
   }
 
   /* Check if non-decodable attachments should be MIME-encapsulated */
-  if ((nattach > 1) && !check_can_decode(actx, b))
+  if ((nattach > 1) && !check_can_decode(aa))
   {
-    const enum QuadOption ans = query_quadoption(_("Can't decode all tagged attachments.  MIME-encapsulate the others?"),
+    const enum QuadOption ans = query_quadoption(_("Can't decode all selected attachments.  MIME-encapsulate the others?"),
                                                  NeoMutt->sub, "mime_forward_rest");
     if (ans == MUTT_ABORT)
       goto cleanup;
@@ -999,7 +946,7 @@ void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
   e_tmp = email_new();
   e_tmp->env = mutt_env_new();
 
-  if (attach_reply_envelope_defaults(e_tmp->env, actx,
+  if (attach_reply_envelope_defaults(e_tmp->env, aa,
                                      e_parent ? e_parent : (b ? b->email : NULL),
                                      flags) == -1)
   {
@@ -1050,7 +997,7 @@ void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
     if (c_header)
       include_header(true, fp_parent, e_parent, fp_tmp, buf_string(prefix));
 
-    if (b)
+    if (nattach == 1)
     {
       if (mutt_can_decode(b))
       {
@@ -1065,12 +1012,13 @@ void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
     }
     else
     {
-      for (short i = 0; i < actx->idxlen; i++)
+      struct AttachPtr **app = NULL;
+      ARRAY_FOREACH(app, aa)
       {
-        if (actx->idx[i]->body->tagged && mutt_can_decode(actx->idx[i]->body))
+        if (mutt_can_decode((*app)->body))
         {
-          state.fp_in = actx->idx[i]->fp;
-          mutt_body_handler(actx->idx[i]->body, &state);
+          state.fp_in = (*app)->fp;
+          mutt_body_handler((*app)->body, &state);
           state_putc(&state, '\n');
         }
       }
@@ -1078,30 +1026,31 @@ void mutt_attach_reply(FILE *fp, struct Mailbox *m, struct Email *e,
 
     mutt_make_attribution_trailer(e_parent, fp_tmp, NeoMutt->sub);
 
-    if (mime_reply_any && !b && !copy_problematic_attachments(&e_tmp->body, actx, false))
+    if (mime_reply_any && (nattach > 1) &&
+        !copy_problematic_attachments(&e_tmp->body, aa, false))
     {
       goto cleanup;
     }
   }
   else
   {
-    if (b)
+    if (nattach == 1)
     {
       attach_include_reply(fp, fp_tmp, b->email);
     }
     else
     {
-      for (short i = 0; i < actx->idxlen; i++)
+      struct AttachPtr **app = NULL;
+      ARRAY_FOREACH(app, aa)
       {
-        if (actx->idx[i]->body->tagged)
-          attach_include_reply(actx->idx[i]->fp, fp_tmp, actx->idx[i]->body->email);
+        attach_include_reply((*app)->fp, fp_tmp, (*app)->body->email);
       }
     }
   }
 
   mutt_file_fclose(&fp_tmp);
 
-  ARRAY_ADD(&ea, e_parent ? e_parent : (b ? b->email : NULL));
+  ARRAY_ADD(&ea, e_parent ? e_parent : b->email);
   if (mutt_send_message(flags, e_tmp, buf_string(tempfile), NULL, &ea, NeoMutt->sub) == 0)
   {
     mutt_set_flag(m, e, MUTT_REPLIED, true, true);
@@ -1122,12 +1071,11 @@ cleanup:
 
 /**
  * mutt_attach_mail_sender - Compose an email to the sender in the email attachment
- * @param actx Attachment Context
- * @param b    Current attachment
+ * @param aa Selected attachments
  */
-void mutt_attach_mail_sender(struct AttachCtx *actx, struct Body *b)
+void mutt_attach_mail_sender(struct AttachPtrArray *aa)
 {
-  if (!check_all_msg(actx, b, 0))
+  if (!check_all_msg(aa, false))
   {
     /* L10N: You will see this error message if you invoke <compose-to-sender>
        when you are on a normal attachment.  */
@@ -1138,25 +1086,14 @@ void mutt_attach_mail_sender(struct AttachCtx *actx, struct Body *b)
   struct Email *e_tmp = email_new();
   e_tmp->env = mutt_env_new();
 
-  if (b)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (mutt_fetch_recips(e_tmp->env, b->email->env, SEND_TO_SENDER, NeoMutt->sub) == -1)
+    if (mutt_fetch_recips(e_tmp->env, (*app)->body->email->env, SEND_TO_SENDER,
+                          NeoMutt->sub) == -1)
     {
       email_free(&e_tmp);
       return;
-    }
-  }
-  else
-  {
-    for (int i = 0; i < actx->idxlen; i++)
-    {
-      if (actx->idx[i]->body->tagged &&
-          (mutt_fetch_recips(e_tmp->env, actx->idx[i]->body->email->env,
-                             SEND_TO_SENDER, NeoMutt->sub) == -1))
-      {
-        email_free(&e_tmp);
-        return;
-      }
     }
   }
 

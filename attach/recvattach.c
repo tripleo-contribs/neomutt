@@ -415,20 +415,16 @@ cleanup:
 }
 
 /**
- * mutt_save_attachment_list - Save a list of attachments
- * @param actx Attachment context
- * @param fp   File handle for the attachment (OPTIONAL)
- * @param tag  If true, only save the tagged attachments
- * @param b    First Attachment
- * @param e  Email
+ * mutt_save_attachment_list - Save a list of selected attachments
+ * @param aa   Selected attachments
+ * @param e    Parent email
  * @param menu Menu listing attachments
  */
-void mutt_save_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag,
-                               struct Body *b, struct Email *e, struct Menu *menu)
+void mutt_save_attachment_list(struct AttachPtrArray *aa, struct Email *e, struct Menu *menu)
 {
   char *directory = NULL;
   int rc = 1;
-  int last = menu_get_index(menu);
+  int last = menu ? menu_get_index(menu) : 0;
   FILE *fp_out = NULL;
   int saved_attachments = 0;
 
@@ -439,81 +435,74 @@ void mutt_save_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag,
   const char *const c_attach_sep = cs_subset_string(NeoMutt->sub, "attach_sep");
   const bool c_attach_save_without_prompting = cs_subset_bool(NeoMutt->sub, "attach_save_without_prompting");
 
-  /* Iterate through attachments (or just the single one if not tagging).
-   * Behavior depends on attach_split: if true, save each to its own file;
-   * if false, concatenate all into one file with optional separator. */
-  for (int i = 0; !tag || (i < actx->idxlen); i++)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (tag)
-    {
-      fp = actx->idx[i]->fp;
-      b = actx->idx[i]->body;
-    }
-    if (!tag || b->tagged)
-    {
-      if (c_attach_split)
-      {
-        if (tag && menu && b->aptr)
-        {
-          menu_set_index(menu, b->aptr->num);
-          menu_queue_redraw(menu, MENU_REDRAW_MOTION);
+    FILE *fp = (*app)->fp;
+    struct Body *b = (*app)->body;
 
-          menu_redraw(menu);
-        }
-        if (c_attach_save_without_prompting)
-        {
-          // Save each file, with no prompting, using the configured 'AttachSaveDir'
-          rc = save_without_prompting(fp, b, e);
-          if (rc == 0)
-            saved_attachments++;
-        }
-        else
-        {
-          // Save each file, prompting the user for the location each time.
-          if (query_save_attachment(fp, b, e, &directory) == -1)
-            break;
-        }
+    /* Iterate through attachments.
+     * Behavior depends on attach_split: if true, save each to its own file;
+     * if false, concatenate all into one file with optional separator. */
+    if (c_attach_split)
+    {
+      if (menu)
+      {
+        menu_set_index(menu, (*app)->num);
+        menu_queue_redraw(menu, MENU_REDRAW_MOTION);
+        menu_redraw(menu);
+      }
+      if (c_attach_save_without_prompting)
+      {
+        // Save each file, with no prompting, using the configured 'AttachSaveDir'
+        rc = save_without_prompting(fp, b, e);
+        if (rc == 0)
+          saved_attachments++;
       }
       else
       {
-        enum SaveAttach opt = MUTT_SAVE_NO_FLAGS;
-
-        if (buf_is_empty(buf))
-        {
-          buf_strcpy(buf, mutt_path_basename(NONULL(b->filename)));
-          prepend_savedir(buf);
-
-          struct FileCompletionData cdata = { false, NULL, NULL, NULL, NULL };
-          if ((mw_get_field(_("Save to file: "), buf, MUTT_COMP_CLEAR, HC_FILE,
-                            &CompleteFileOps, &cdata) != 0) ||
-              buf_is_empty(buf))
-          {
-            goto cleanup;
-          }
-          expand_path(buf, false);
-          if (mutt_check_overwrite(b->filename, buf_string(buf), tfile, &opt, NULL))
-            goto cleanup;
-        }
-        else
-        {
-          opt = MUTT_SAVE_APPEND;
-        }
-
-        rc = save_attachment_flowed_helper(fp, b, buf_string(tfile), opt, e);
-        if ((rc == 0) && c_attach_sep && (fp_out = mutt_file_fopen(buf_string(tfile), "a")))
-        {
-          fprintf(fp_out, "%s", c_attach_sep);
-          mutt_file_fclose(&fp_out);
-        }
+        // Save each file, prompting the user for the location each time.
+        if (query_save_attachment(fp, b, e, &directory) == -1)
+          break;
       }
     }
-    if (!tag)
-      break;
+    else
+    {
+      enum SaveAttach opt = MUTT_SAVE_NO_FLAGS;
+
+      if (buf_is_empty(buf))
+      {
+        buf_strcpy(buf, mutt_path_basename(NONULL(b->filename)));
+        prepend_savedir(buf);
+
+        struct FileCompletionData cdata = { false, NULL, NULL, NULL, NULL };
+        if ((mw_get_field(_("Save to file: "), buf, MUTT_COMP_CLEAR, HC_FILE,
+                          &CompleteFileOps, &cdata) != 0) ||
+            buf_is_empty(buf))
+        {
+          goto cleanup;
+        }
+        expand_path(buf, false);
+        if (mutt_check_overwrite(b->filename, buf_string(buf), tfile, &opt, NULL))
+          goto cleanup;
+      }
+      else
+      {
+        opt = MUTT_SAVE_APPEND;
+      }
+
+      rc = save_attachment_flowed_helper(fp, b, buf_string(tfile), opt, e);
+      if ((rc == 0) && c_attach_sep && (fp_out = mutt_file_fopen(buf_string(tfile), "a")))
+      {
+        fprintf(fp_out, "%s", c_attach_sep);
+        mutt_file_fclose(&fp_out);
+      }
+    }
   }
 
   FREE(&directory);
 
-  if (tag && menu)
+  if ((ARRAY_SIZE(aa) > 1) && menu)
   {
     menu_set_index(menu, last);
     menu_queue_redraw(menu, MENU_REDRAW_MOTION);
@@ -678,53 +667,43 @@ bail:
 
 /**
  * pipe_attachment_list - Pipe a list of attachments to a command
- * @param command Command to pipe the attachment to
- * @param actx    Attachment context
- * @param fp      File handle to the attachment (OPTIONAL)
- * @param tag     If true, only save the tagged attachments
- * @param top     First Attachment
+ * @param command Command to pipe the attachments to
+ * @param aa      Selected attachments
  * @param filter  Is this command a filter?
  * @param state   File state for decoding the attachments
  */
-static void pipe_attachment_list(const char *command, struct AttachCtx *actx,
-                                 FILE *fp, bool tag, struct Body *top,
+static void pipe_attachment_list(const char *command, struct AttachPtrArray *aa,
                                  bool filter, struct State *state)
 {
   const bool c_attach_split = cs_subset_bool(NeoMutt->sub, "attach_split");
-  for (int i = 0; !tag || (i < actx->idxlen); i++)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (tag)
-    {
-      fp = actx->idx[i]->fp;
-      top = actx->idx[i]->body;
-    }
-    if (!tag || top->tagged)
-    {
-      if (!filter && !c_attach_split)
-        pipe_attachment(fp, top, state);
-      else
-        query_pipe_attachment(command, fp, top, filter);
-    }
-    if (!tag)
-      break;
+    FILE *fp = (*app)->fp;
+    struct Body *b = (*app)->body;
+
+    if (!filter && !c_attach_split)
+      pipe_attachment(fp, b, state);
+    else
+      query_pipe_attachment(command, fp, b, filter);
   }
 }
 
 /**
- * mutt_pipe_attachment_list - Pipe a list of attachments to a command
- * @param actx   Attachment context
- * @param fp     File handle to the attachment (OPTIONAL)
- * @param tag    If true, only save the tagged attachments
- * @param b      First Attachment
+ * mutt_pipe_attachment_list - Pipe selected attachments to a command
+ * @param aa     Selected attachments
  * @param filter Is this command a filter?
  */
-void mutt_pipe_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag,
-                               struct Body *b, bool filter)
+void mutt_pipe_attachment_list(struct AttachPtrArray *aa, bool filter)
 {
   struct State state = { 0 };
   struct Buffer *buf = NULL;
 
-  if (fp)
+  if (ARRAY_EMPTY(aa))
+    return;
+
+  struct AttachPtr **first = ARRAY_GET(aa, 0);
+  if (first && (*first)->fp)
     filter = false; /* sanity check: we can't filter in the recv case yet */
 
   buf = buf_pool_get();
@@ -748,7 +727,7 @@ void mutt_pipe_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag,
     mutt_endwin();
     pid_t pid = filter_create(buf_string(buf), &state.fp_out, NULL, NULL,
                               NeoMutt->env);
-    pipe_attachment_list(buf_string(buf), actx, fp, tag, b, filter, &state);
+    pipe_attachment_list(buf_string(buf), aa, filter, &state);
     mutt_file_fclose(&state.fp_out);
     const bool c_wait_key = cs_subset_bool(NeoMutt->sub, "wait_key");
     if ((filter_wait(pid) != 0) || c_wait_key)
@@ -756,7 +735,7 @@ void mutt_pipe_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag,
   }
   else
   {
-    pipe_attachment_list(buf_string(buf), actx, fp, tag, b, filter, &state);
+    pipe_attachment_list(buf_string(buf), aa, filter, &state);
   }
 
 cleanup:
@@ -765,157 +744,133 @@ cleanup:
 
 /**
  * can_print - Do we know how to print this attachment type?
- * @param actx Attachment
- * @param b    Body of email
- * @param tag  Apply to all tagged Attachments
+ * @param aa Selected attachments
  * @retval true (all) the Attachment(s) are printable
  */
-static bool can_print(struct AttachCtx *actx, struct Body *b, bool tag)
+static bool can_print(struct AttachPtrArray *aa)
 {
   char type[256] = { 0 };
 
-  for (int i = 0; !tag || (i < actx->idxlen); i++)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (tag)
-      b = actx->idx[i]->body;
+    struct Body *b = (*app)->body;
     snprintf(type, sizeof(type), "%s/%s", BODY_TYPE(b), b->subtype);
-    if (!tag || b->tagged)
+    if (!mailcap_lookup(b, type, sizeof(type), NULL, MUTT_MC_PRINT))
     {
-      if (!mailcap_lookup(b, type, sizeof(type), NULL, MUTT_MC_PRINT))
+      if (!mutt_istr_equal("text/plain", b->subtype) &&
+          !mutt_istr_equal("application/postscript", b->subtype))
       {
-        if (!mutt_istr_equal("text/plain", b->subtype) &&
-            !mutt_istr_equal("application/postscript", b->subtype))
+        if (!mutt_can_decode(b))
         {
-          if (!mutt_can_decode(b))
-          {
-            /* L10N: s gets replaced by a MIME type, e.g. "text/plain" or
-               application/octet-stream.  */
-            mutt_error(_("I don't know how to print %s attachments"), type);
-            return false;
-          }
+          /* L10N: s gets replaced by a MIME type, e.g. "text/plain" or
+             application/octet-stream.  */
+          mutt_error(_("I don't know how to print %s attachments"), type);
+          return false;
         }
       }
     }
-    if (!tag)
-      break;
   }
   return true;
 }
 
 /**
  * print_attachment_list - Print a list of Attachments
- * @param actx  Attachment context
- * @param fp    File handle to the attachment (OPTIONAL)
- * @param tag   Apply to all tagged Attachments
- * @param b     First Attachment
+ * @param aa    Selected attachments
  * @param state File state for decoding the attachments
  */
-static void print_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag,
-                                  struct Body *b, struct State *state)
+static void print_attachment_list(struct AttachPtrArray *aa, struct State *state)
 {
   char type[256] = { 0 };
 
   const bool c_attach_split = cs_subset_bool(NeoMutt->sub, "attach_split");
   const char *const c_attach_sep = cs_subset_string(NeoMutt->sub, "attach_sep");
 
-  for (int i = 0; !tag || (i < actx->idxlen); i++)
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, aa)
   {
-    if (tag)
+    FILE *fp = (*app)->fp;
+    struct Body *b = (*app)->body;
+
+    snprintf(type, sizeof(type), "%s/%s", BODY_TYPE(b), b->subtype);
+    if (!c_attach_split && !mailcap_lookup(b, type, sizeof(type), NULL, MUTT_MC_PRINT))
     {
-      fp = actx->idx[i]->fp;
-      b = actx->idx[i]->body;
-    }
-    if (!tag || b->tagged)
-    {
-      snprintf(type, sizeof(type), "%s/%s", BODY_TYPE(b), b->subtype);
-      if (!c_attach_split && !mailcap_lookup(b, type, sizeof(type), NULL, MUTT_MC_PRINT))
+      if (mutt_istr_equal("text/plain", b->subtype) ||
+          mutt_istr_equal("application/postscript", b->subtype))
       {
-        if (mutt_istr_equal("text/plain", b->subtype) ||
-            mutt_istr_equal("application/postscript", b->subtype))
-        {
-          pipe_attachment(fp, b, state);
-        }
-        else if (mutt_can_decode(b))
-        {
-          /* decode and print */
+        pipe_attachment(fp, b, state);
+      }
+      else if (mutt_can_decode(b))
+      {
+        /* decode and print */
 
-          FILE *fp_in = NULL;
-          struct Buffer *newfile = buf_pool_get();
+        FILE *fp_in = NULL;
+        struct Buffer *newfile = buf_pool_get();
 
-          buf_mktemp(newfile);
-          if (mutt_decode_save_attachment(fp, b, buf_string(newfile),
-                                          STATE_PRINTING, MUTT_SAVE_NO_FLAGS) == 0)
+        buf_mktemp(newfile);
+        if (mutt_decode_save_attachment(fp, b, buf_string(newfile),
+                                        STATE_PRINTING, MUTT_SAVE_NO_FLAGS) == 0)
+        {
+          if (!state->fp_out)
           {
-            if (!state->fp_out)
-            {
-              mutt_error("BUG in print_attachment_list().  Please report this. ");
-              mutt_file_unlink(buf_string(newfile));
-              buf_pool_release(&newfile);
-              return;
-            }
-
-            fp_in = mutt_file_fopen(buf_string(newfile), "r");
-            if (fp_in)
-            {
-              mutt_file_copy_stream(fp_in, state->fp_out);
-              mutt_file_fclose(&fp_in);
-              if (c_attach_sep)
-                state_puts(state, c_attach_sep);
-            }
+            mutt_error("BUG in print_attachment_list().  Please report this. ");
+            mutt_file_unlink(buf_string(newfile));
+            buf_pool_release(&newfile);
+            return;
           }
-          mutt_file_unlink(buf_string(newfile));
-          buf_pool_release(&newfile);
+
+          fp_in = mutt_file_fopen(buf_string(newfile), "r");
+          if (fp_in)
+          {
+            mutt_file_copy_stream(fp_in, state->fp_out);
+            mutt_file_fclose(&fp_in);
+            if (c_attach_sep)
+              state_puts(state, c_attach_sep);
+          }
         }
-      }
-      else
-      {
-        mutt_print_attachment(fp, b);
+        mutt_file_unlink(buf_string(newfile));
+        buf_pool_release(&newfile);
       }
     }
-    if (!tag)
-      break;
+    else
+    {
+      mutt_print_attachment(fp, b);
+    }
   }
 }
 
 /**
- * mutt_print_attachment_list - Print a list of Attachments
- * @param actx Attachment context
- * @param fp   File handle to the attachment (OPTIONAL)
- * @param tag  Apply to all tagged Attachments
- * @param b    First Attachment
+ * mutt_print_attachment_list - Print selected attachments
+ * @param aa Selected attachments
  */
-void mutt_print_attachment_list(struct AttachCtx *actx, FILE *fp, bool tag, struct Body *b)
+void mutt_print_attachment_list(struct AttachPtrArray *aa)
 {
   char prompt[128] = { 0 };
   struct State state = { 0 };
-  int tagmsgcount = 0;
+  const int count = ARRAY_SIZE(aa);
 
-  if (tag)
-    for (int i = 0; i < actx->idxlen; i++)
-      if (actx->idx[i]->body->tagged)
-        tagmsgcount++;
+  if (count == 0)
+    return;
 
   snprintf(prompt, sizeof(prompt),
-           tag ? ngettext("Print tagged attachment?", "Print %d tagged attachments?", tagmsgcount) :
-                 _("Print attachment?"),
-           tagmsgcount);
+           ngettext("Print attachment?", "Print %d attachments?", count), count);
   if (query_quadoption(prompt, NeoMutt->sub, "print") != MUTT_YES)
     return;
 
   const bool c_attach_split = cs_subset_bool(NeoMutt->sub, "attach_split");
   if (c_attach_split)
   {
-    print_attachment_list(actx, fp, tag, b, &state);
+    print_attachment_list(aa, &state);
   }
   else
   {
-    if (!can_print(actx, b, tag))
+    if (!can_print(aa))
       return;
     mutt_endwin();
     const char *const c_print_command = cs_subset_string(NeoMutt->sub, "print_command");
     pid_t pid = filter_create(NONULL(c_print_command), &state.fp_out, NULL,
                               NULL, NeoMutt->env);
-    print_attachment_list(actx, fp, tag, b, &state);
+    print_attachment_list(aa, &state);
     mutt_file_fclose(&state.fp_out);
     const bool c_wait_key = cs_subset_bool(NeoMutt->sub, "wait_key");
     if ((filter_wait(pid) != 0) || c_wait_key)
@@ -1040,21 +995,30 @@ int mutt_attach_display_loop(struct ConfigSubset *sub, struct Menu *menu, int op
       case OP_PIPE:
       {
         struct AttachPtr *cur_att = current_attachment(actx, menu);
-        mutt_pipe_attachment_list(actx, cur_att->fp, false, cur_att->body, false);
+        struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+        ARRAY_ADD(&aa, cur_att);
+        mutt_pipe_attachment_list(&aa, false);
+        ARRAY_FREE(&aa);
         op = OP_ATTACH_VIEW;
         break;
       }
       case OP_ATTACH_PRINT:
       {
         struct AttachPtr *cur_att = current_attachment(actx, menu);
-        mutt_print_attachment_list(actx, cur_att->fp, false, cur_att->body);
+        struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+        ARRAY_ADD(&aa, cur_att);
+        mutt_print_attachment_list(&aa);
+        ARRAY_FREE(&aa);
         op = OP_ATTACH_VIEW;
         break;
       }
       case OP_ATTACH_SAVE:
       {
         struct AttachPtr *cur_att = current_attachment(actx, menu);
-        mutt_save_attachment_list(actx, cur_att->fp, false, cur_att->body, e, NULL);
+        struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+        ARRAY_ADD(&aa, cur_att);
+        mutt_save_attachment_list(&aa, e, NULL);
+        ARRAY_FREE(&aa);
         op = OP_ATTACH_VIEW;
         break;
       }
@@ -1232,37 +1196,95 @@ void mutt_update_recvattach_menu(struct AttachCtx *actx, struct Menu *menu, bool
 }
 
 /**
- * ba_add_tagged - Get an array of tagged Attachments
- * @param ba   Empty BodyArray to populate
+ * aa_add_tagged - Get an array of tagged Attachments
+ * @param aa   Empty AttachPtrArray to populate
  * @param actx List of Attachments
- * @param menu Menu
  * @retval num Number of selected Attachments
  * @retval -1  Error
  */
-int ba_add_tagged(struct BodyArray *ba, struct AttachCtx *actx, struct Menu *menu)
+static int aa_add_tagged(struct AttachPtrArray *aa, struct AttachCtx *actx)
 {
-  if (!ba || !actx || !menu)
+  if (!aa || !actx)
     return -1;
 
-  if (menu->tag_prefix)
+  for (int i = 0; i < actx->idxlen; i++)
   {
-    for (int i = 0; i < actx->idxlen; i++)
-    {
-      struct Body *b = actx->idx[i]->body;
-      if (b->tagged)
-      {
-        ARRAY_ADD(ba, b);
-      }
-    }
+    if (actx->idx[i]->body->tagged)
+      ARRAY_ADD(aa, actx->idx[i]);
   }
-  else
+
+  return ARRAY_SIZE(aa);
+}
+
+/**
+ * aa_add_selection - Build a working set of Attachments for an action
+ * @param aa         Empty AttachPtrArray to populate
+ * @param actx       List of Attachments
+ * @param menu       Menu
+ * @param use_tagged Use tagged attachments
+ * @param count      Repeat-count (0 or 1 == current selection)
+ * @retval num Number of selected Attachments
+ * @retval -1  Error
+ */
+int aa_add_selection(struct AttachPtrArray *aa, struct AttachCtx *actx,
+                     struct Menu *menu, bool use_tagged, int count)
+{
+  if (!aa || !actx || !menu)
+    return -1;
+
+  if (use_tagged)
+    return aa_add_tagged(aa, actx);
+
+  const int index = menu_get_index(menu);
+  if ((index < 0) || (index >= actx->vcount))
+    return -1;
+
+  int n = (count > 1) ? count : 1;
+  if ((index + n) > actx->vcount)
+    n = actx->vcount - index;
+
+  for (int i = 0; i < n; i++)
   {
-    struct AttachPtr *cur = current_attachment(actx, menu);
-    if (!cur)
+    const int rindex = actx->v2r[index + i];
+    if ((rindex < 0) || (rindex >= actx->idxlen))
       return -1;
 
-    ARRAY_ADD(ba, cur->body);
+    ARRAY_ADD(aa, actx->idx[rindex]);
   }
 
-  return ARRAY_SIZE(ba);
+  return ARRAY_SIZE(aa);
+}
+
+/**
+ * ba_add_selection - Build a working set of attachment bodies for an action
+ * @param ba         Empty BodyArray to populate
+ * @param actx       List of Attachments
+ * @param menu       Menu
+ * @param use_tagged Use tagged attachments
+ * @param count      Repeat-count (0 or 1 == current selection)
+ * @retval num Number of selected Attachments
+ * @retval -1  Error
+ */
+int ba_add_selection(struct BodyArray *ba, struct AttachCtx *actx,
+                     struct Menu *menu, bool use_tagged, int count)
+{
+  if (!ba)
+    return -1;
+
+  struct AttachPtrArray aa = ARRAY_HEAD_INITIALIZER;
+  if (aa_add_selection(&aa, actx, menu, use_tagged, count) < 0)
+  {
+    ARRAY_FREE(&aa);
+    return -1;
+  }
+
+  struct AttachPtr **app = NULL;
+  ARRAY_FOREACH(app, &aa)
+  {
+    ARRAY_ADD(ba, (*app)->body);
+  }
+
+  const int rc = ARRAY_SIZE(ba);
+  ARRAY_FREE(&aa);
+  return rc;
 }

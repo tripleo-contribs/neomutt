@@ -667,7 +667,7 @@ static int move_attachment(struct ComposeSharedData *shared, bool up)
 
   struct Body *cur_body = cur_att->body;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
@@ -1300,7 +1300,7 @@ static int op_attach_edit_content_id(struct ComposeFunctionData *fdata,
   struct Buffer *buf = buf_pool_get();
   struct Buffer *cid = buf_pool_get();
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
 
   struct AttachPtr *cur_att = current_attachment(actx, menu);
 
@@ -1391,7 +1391,7 @@ static int op_attach_edit_description(struct ComposeFunctionData *fdata,
   /* header names should not be translated */
   if (mw_get_field("Description: ", buf, MUTT_COMP_NO_FLAGS, HC_OTHER, NULL, NULL) == 0)
   {
-    ba_add_tagged(&ba, actx, menu);
+    // ba_add_tagged(&ba, actx, menu);
 
     bool changed = false;
     struct Body **bp = NULL;
@@ -1443,7 +1443,7 @@ static int op_attach_edit_encoding(struct ComposeFunctionData *fdata,
     int enc = mutt_check_encoding(buf_string(buf));
     if ((enc != ENC_OTHER) && (enc != ENC_UUENCODED))
     {
-      ba_add_tagged(&ba, actx, menu);
+      // ba_add_tagged(&ba, actx, menu);
 
       bool changed = false;
       struct Body **bp = NULL;
@@ -1497,7 +1497,7 @@ static int op_attach_edit_language(struct ComposeFunctionData *fdata,
   buf_strcpy(buf, cur_att->body->language);
   if (mw_get_field("Content-Language: ", buf, MUTT_COMP_NO_FLAGS, HC_OTHER, NULL, NULL) == 0)
   {
-    ba_add_tagged(&ba, actx, menu);
+    // ba_add_tagged(&ba, actx, menu);
 
     bool changed = false;
     struct Body **bp = NULL;
@@ -1543,7 +1543,7 @@ static int op_attach_edit_mime(struct ComposeFunctionData *fdata, const struct K
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
@@ -1612,8 +1612,8 @@ static int op_attach_filter(struct ComposeFunctionData *fdata, const struct KeyE
   }
 
   const int op = event->op;
-  mutt_pipe_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body,
-                            (op == OP_ATTACH_FILTER));
+  // mutt_pipe_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body,
+  //                           (op == OP_ATTACH_FILTER));
   if (op == OP_ATTACH_FILTER) /* cte might have changed */
   {
     menu_queue_redraw(menu, menu->tag_prefix ? MENU_REDRAW_FULL : MENU_REDRAW_CURRENT);
@@ -1637,7 +1637,7 @@ static int op_attach_get_attachment(struct ComposeFunctionData *fdata,
   int rc = FR_ERROR;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
@@ -1941,7 +1941,7 @@ static int op_attach_print(struct ComposeFunctionData *fdata, const struct KeyEv
     return FR_ERROR;
   }
 
-  mutt_print_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body);
+  // mutt_print_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body);
   /* no send2hook, since this doesn't modify the message */
   return FR_SUCCESS;
 }
@@ -1995,7 +1995,7 @@ static int op_attach_save(struct ComposeFunctionData *fdata, const struct KeyEve
     return FR_ERROR;
   }
 
-  mutt_save_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body, NULL, menu);
+  // mutt_save_attachment_list(actx, NULL, menu->tag_prefix, cur_att->body, NULL, menu);
   /* no send2hook, since this doesn't modify the message */
   return FR_SUCCESS;
 }
@@ -2015,7 +2015,7 @@ static int op_attach_toggle_disposition(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
 
   struct Body **bp = NULL;
   ARRAY_FOREACH(bp, &ba)
@@ -2046,7 +2046,7 @@ static int op_attach_toggle_recode(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
 
   struct Body **bp = NULL;
   ARRAY_FOREACH(bp, &ba)
@@ -2098,7 +2098,7 @@ static int op_attach_toggle_unlink(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
 
   struct Body **bp = NULL;
   ARRAY_FOREACH(bp, &ba)
@@ -2192,7 +2192,7 @@ static int op_attach_update_encoding(struct ComposeFunctionData *fdata,
   int rc = FR_NO_ACTION;
   struct Menu *menu = shared->adata->menu;
   struct BodyArray ba = ARRAY_HEAD_INITIALIZER;
-  ba_add_tagged(&ba, actx, menu);
+  // ba_add_tagged(&ba, actx, menu);
   if (ARRAY_EMPTY(&ba))
     goto done;
 
