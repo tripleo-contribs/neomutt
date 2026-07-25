@@ -29,6 +29,7 @@
  */
 
 #include "config.h"
+#include <limits.h>
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
@@ -282,8 +283,13 @@ static int zstrm_write(struct Connection *conn, const char *buf, size_t count)
     }
   } while (true);
 
-  rc = (int) count;
-  return (rc <= 0) ? 1 : rc; /* avoid wrong behaviour due to overflow */
+  // Guard overflow when narrowing to int for Connection::write(); see #4940.
+  if (count > INT_MAX)
+  {
+    mutt_debug(LL_DEBUG1, "zstrm_write: count %zu exceeds INT_MAX\n", count);
+    return -1;
+  }
+  return (int) count;
 }
 
 /**

@@ -1127,7 +1127,8 @@ static int tls_socket_write(struct Connection *conn, const char *buf, size_t cou
     sent += rc;
   } while (sent < count);
 
-  return sent;
+  // Narrowed to int for the Connection::write() interface; see #4940.
+  return (int) sent;
 }
 
 /**
