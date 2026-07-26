@@ -1,5 +1,5 @@
-DATA_DIRS=  colorschemes logo account-command \
-	    account-command/gpg-json account-command/macos-keychain
+DATA_DIRS=  account-command account-command/gpg-json \
+	    account-command/macos-keychain colorschemes logo
 all-data:
 
 clean-data:
