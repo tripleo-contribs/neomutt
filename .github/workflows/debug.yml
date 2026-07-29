@@ -16,8 +16,6 @@ jobs:
 
     env:
       CONFIGURE_OPTIONS: --autocrypt --fmemopen --gdbm --gnutls --gpgme --gss --lmdb --lua --lz4 --notmuch --pcre2 --rocksdb --sasl --tdb --with-lock=fcntl --zlib --zstd
-      # Force Node 24 until github-actions-cpu-cores gets a new release
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     strategy:
       # Limit jobs to one at a time so that ccache really helps later builds
@@ -56,10 +54,6 @@ jobs:
             options: --debug-backtrace --debug-color --debug-email --debug-graphviz --debug-keymap --debug-logging --debug-names --debug-notify --debug-queue --debug-window --coverage
 
     steps:
-    - name: Get number of CPU cores
-      uses: SimenB/github-actions-cpu-cores@v3
-      id: cpu-cores
-
     - name: Checkout Code
       uses: actions/checkout@v7
 
@@ -83,7 +77,7 @@ jobs:
     - name: Build NeoMutt
       run: |
         export PATH="$PATH:/usr/lib/llvm-10/bin"
-        make -j ${{steps.cpu-cores.outputs.count}} ${{ matrix.cfg.extras }}
+        make -j $(nproc) ${{ matrix.cfg.extras }}
 
     - name: NeoMutt Version
       run: |
@@ -92,10 +86,9 @@ jobs:
 
     - name: Build Tests
       run: |
-        test -f neomutt && make -j ${{steps.cpu-cores.outputs.count}} test/neomutt-test || :
+        test -f neomutt && make -j $(nproc) test/neomutt-test || :
 
     - name: Run Tests
       run: |
         export NEOMUTT_TEST_DIR=$GITHUB_WORKSPACE/test-files
         test -f nemoutt && make test || :
-

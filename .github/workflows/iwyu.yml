@@ -39,7 +39,7 @@ jobs:
             --with-lock=fcntl --zlib --zstd --compile-commands
 
       - name: Build (generates compile_commands.json)
-        run: make -j "$(nproc)" compile_commands.json
+        run: make -j $(nproc) compile_commands.json
 
       - name: Run IWYU
         run: |

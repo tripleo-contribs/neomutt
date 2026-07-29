@@ -16,14 +16,8 @@ jobs:
 
     env:
       OPTIONS: --coverage --autocrypt --gdbm --gnutls --gpgme --gss --lmdb --lua --lz4 --notmuch --sasl --tdb --with-lock=fcntl --zlib --zstd
-      # Force Node 24 until github-actions-cpu-cores gets a new release
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-    - name: Get number of CPU cores
-      uses: SimenB/github-actions-cpu-cores@v3
-      id: cpu-cores
-
     - name: Checkout Code
       uses: actions/checkout@v7
 
@@ -46,7 +40,7 @@ jobs:
         ./configure $OPTIONS
 
     - name: Build NeoMutt
-      run: make -j ${{steps.cpu-cores.outputs.count}} neomutt
+      run: make -j $(nproc) neomutt
 
     - name: NeoMutt Version
       run: |
@@ -54,7 +48,7 @@ jobs:
         ./neomutt -h all
 
     - name: Build Tests
-      run: make -j ${{steps.cpu-cores.outputs.count}} test/neomutt-test
+      run: make -j $(nproc) test/neomutt-test
 
     - name: Make Coverage
       run: |

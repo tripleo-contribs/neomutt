@@ -19,14 +19,8 @@ jobs:
       OPTIONS: --autocrypt --disable-doc --fmemopen --gdbm --gnutls --gpgme --gss --lmdb --lua --lz4 --notmuch --pcre2 --rocksdb --sasl --tdb --with-lock=fcntl --zlib --zstd
       COV_TOOLS: cov-tools
       COV_RESULTS: cov-int
-      # Force Node 24 until github-actions-cpu-cores gets a new release
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-    - name: Get number of CPU cores
-      uses: SimenB/github-actions-cpu-cores@v3
-      id: cpu-cores
-
     - name: Check Secret
       run: |
         [ -n "${{ secrets.COVERITY_SCAN_TOKEN }}" ]
@@ -47,7 +41,7 @@ jobs:
     - name: Build with Coverity
       run: |
         export PATH="$(pwd)/$COV_TOOLS/bin:$PATH"
-        cov-build --dir $COV_RESULTS make -j ${{steps.cpu-cores.outputs.count}}
+        cov-build --dir $COV_RESULTS make -j $(nproc)
         # Filter out private info
         sed -i '/TOKEN=/d' cov-int/build-log.txt
 
@@ -77,4 +71,3 @@ jobs:
         # If we go over quota, alert the user
         cat curl.log
         grep -qv "quota.*reached" curl.log || false
-
