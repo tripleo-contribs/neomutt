@@ -55,7 +55,6 @@ struct ImapMboxData
   unsigned int recent;                        ///< Number of recent messages
   unsigned int unseen;                        ///< Number of unseen messages
 
-
   // Cached data used only when the mailbox is opened
   struct HashTable *uid_hash;                 ///< Hash Table: "uid" -> Email
   ARRAY_HEAD(MSNArray, struct Email *) msn;   ///< look up headers by (MSN-1)

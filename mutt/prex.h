@@ -227,7 +227,6 @@ enum PrexAccountCmd
   PREX_ACCOUNT_CMD_MATCH_MAX
 };
 
-
 /**
  * enum PrexAliasTags - Regex matches for the tags: field of an alias command
  */

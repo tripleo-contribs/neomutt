@@ -23,7 +23,6 @@
 #ifndef MUTT_COLOR_MERGED_H
 #define MUTT_COLOR_MERGED_H
 
-
 #include "attr.h"
 
 const struct AttrColor * merged_color_overlay(const struct AttrColor *base, const struct AttrColor *over);

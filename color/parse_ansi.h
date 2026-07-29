@@ -32,4 +32,3 @@ int ansi_color_seq_length  (const char *str);
 
 #endif /* MUTT_COLOR_PARSE_ANSI_H */
 
-

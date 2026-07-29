@@ -23,7 +23,6 @@
 #ifndef MUTT_COMPOSE_CBAR_DATA_H
 #define MUTT_COMPOSE_CBAR_DATA_H
 
-
 struct MuttWindow;
 
 /**

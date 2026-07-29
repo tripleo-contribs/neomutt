@@ -716,7 +716,6 @@ char *imap_fix_path(const char *mailbox, char *path, size_t plen)
  * @param path      Buffer for the result
  * @param plen      Length of buffer
  * @retval ptr      Fixed-up path
- *
  */
 char *imap_fix_path_with_delim(const char delim, const char *mailbox, char *path, size_t plen)
 {

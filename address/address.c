@@ -1134,7 +1134,6 @@ size_t mutt_addr_write(struct Buffer *buf, struct Address *addr, bool display)
  *
  * If 'display' is set, then it doesn't matter if the transformation isn't
  * reversible.
- *
  */
 static size_t addrlist_write(const struct AddressList *al, struct Buffer *buf,
                              bool display, const char *header, int cols)
@@ -1214,7 +1213,6 @@ size_t mutt_addrlist_write_wrap(const struct AddressList *al,
  *
  * If 'display' is set, then it doesn't matter if the transformation isn't
  * reversible.
- *
  */
 size_t mutt_addrlist_write(const struct AddressList *al, struct Buffer *buf, bool display)
 {

@@ -670,7 +670,7 @@ void init_menu(struct BrowserState *state, struct Menu *menu, struct Mailbox *m,
  * @param sel  Selection (entry index)
  * @param act  Action: 0 untag, 1 tag, -1 toggle
  * @return Net change in number of tagged entries (0 or ±1)
- 
+ *
  * This function tags/untags entries in the browser.
  * - For file selection mode, prevents tagging directories
  * - For NNTP newsgroups, allows tagging of newsgroup entries for bulk operations

@@ -121,7 +121,6 @@ bool mutt_isxdigit(int arg)
  * @param arg Character to lowercase
  * @retval num Success: Lower-case character
  * @retval arg Failure: Original character
- *
  */
 int mutt_tolower(int arg)
 {

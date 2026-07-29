@@ -35,7 +35,6 @@
 #ifndef MUTT_LUA_LIB_H
 #define MUTT_LUA_LIB_H
 
-
 #ifdef USE_LUA
 
 struct Buffer;

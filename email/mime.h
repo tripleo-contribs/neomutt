@@ -70,7 +70,6 @@ enum ContentDisposition
 /// Maximum number of MIME parts to process to prevent DoS
 #define MUTT_MIME_MAX_PARTS  500
 
-
 /* MIME encoding/decoding global vars */
 
 extern const int IndexHex[128];

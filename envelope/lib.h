@@ -36,7 +36,6 @@
 #ifndef MUTT_ENVELOPE_LIB_H
 #define MUTT_ENVELOPE_LIB_H
 
-
 struct Buffer;
 struct ConfigSubset;
 struct Email;
