@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_COMMMAND_COMMON_H
-#define TEST_COMMMAND_COMMON_H
+#ifndef MUTT_TEST_COMMAND_COMMON_H
+#define MUTT_TEST_COMMAND_COMMON_H
 
 #include "core/lib.h"
 
@@ -31,4 +31,4 @@ struct CommandTest
   const char *line;
 };
 
-#endif /* TEST_COMMMAND_COMMON_H */
+#endif /* MUTT_TEST_COMMAND_COMMON_H */

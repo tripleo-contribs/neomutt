@@ -20,11 +20,11 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_CONFIG_ENUM_H
-#define TEST_CONFIG_ENUM_H
+#ifndef MUTT_TEST_CONFIG_ENUM_H
+#define MUTT_TEST_CONFIG_ENUM_H
 
 #include <stdbool.h>
 
 void config_enum(void);
 
-#endif /* TEST_CONFIG_ENUM_H */
+#endif /* MUTT_TEST_CONFIG_ENUM_H */

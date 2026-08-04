@@ -22,8 +22,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MUTT_OPCODES_H
-#define MUTT_OPCODES_H
+#ifndef MUTT_GUI_OPCODES_H
+#define MUTT_GUI_OPCODES_H
 
 #include "config.h"
 #include "mutt/lib.h"
@@ -695,4 +695,4 @@ enum MuttOps {
 };
 // clang-format on
 
-#endif /* MUTT_OPCODES_H */
+#endif /* MUTT_GUI_OPCODES_H */

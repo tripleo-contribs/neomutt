@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MUTT_MH_MDEMAIL_H
-#define MUTT_MH_MDEMAIL_H
+#ifndef MUTT_MH_MHEMAIL_H
+#define MUTT_MH_MHEMAIL_H
 
 #include <stdbool.h>
 #include <sys/types.h>
@@ -45,4 +45,4 @@ void            mharray_clear(struct MhEmailArray *mha);
 void            mh_entry_free(struct MhEmail **ptr);
 struct MhEmail *mh_entry_new (void);
 
-#endif /* MUTT_MH_MDEMAIL_H */
+#endif /* MUTT_MH_MHEMAIL_H */

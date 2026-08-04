@@ -283,7 +283,6 @@ const char *name_menu_type(enum MenuType mt)
 #endif
     DEBUG_NAME(MENU_BROWSER);
     DEBUG_NAME(MENU_COMPOSE);
-    DEBUG_NAME(MENU_DIALOG);
     DEBUG_NAME(MENU_EDITOR);
     DEBUG_NAME(MENU_GENERIC);
     DEBUG_NAME(MENU_INDEX);

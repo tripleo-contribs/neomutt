@@ -22,8 +22,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_TEST_COMMON_H
-#define TEST_TEST_COMMON_H
+#ifndef MUTT_TEST_TEST_COMMON_H
+#define MUTT_TEST_TEST_COMMON_H
 
 #include "config.h"
 #include "acutest.h"
@@ -83,4 +83,4 @@ static inline FILE *test_make_file_with_contents(char *contents, size_t len)
 
 #define LONG_IS_64 (LONG_MAX == 9223372036854775807)
 
-#endif /* TEST_TEST_COMMON_H */
+#endif /* MUTT_TEST_TEST_COMMON_H */

@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_STORE_COMMON_H
-#define TEST_STORE_COMMON_H
+#ifndef MUTT_TEST_STORE_COMMON_H
+#define MUTT_TEST_STORE_COMMON_H
 
 #include "acutest.h"
 #include <stdbool.h>
@@ -33,4 +33,4 @@ bool test_store_db(const struct StoreOps *sops, void *db);
 bool test_store_degenerate(const struct StoreOps *sops, const char *name);
 bool test_store_setup(struct Buffer *path);
 
-#endif /* TEST_STORE_COMMON_H */
+#endif /* MUTT_TEST_STORE_COMMON_H */

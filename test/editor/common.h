@@ -21,8 +21,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_EDITOR_COMMON_H
-#define TEST_EDITOR_COMMON_H
+#ifndef MUTT_TEST_EDITOR_COMMON_H
+#define MUTT_TEST_EDITOR_COMMON_H
 
 #include <stddef.h>
 
@@ -33,4 +33,4 @@ size_t editor_buffer_get_cursor(struct EnterState *es);
 size_t editor_buffer_set_cursor(struct EnterState *es, size_t pos);
 int editor_buffer_set(struct EnterState *es, const char *str);
 
-#endif /* TEST_EDITOR_COMMON_H */
+#endif /* MUTT_TEST_EDITOR_COMMON_H */

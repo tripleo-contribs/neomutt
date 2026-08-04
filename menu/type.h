@@ -38,7 +38,6 @@ enum MenuType
 #endif
   MENU_BROWSER,          ///< General file/mailbox browser
   MENU_COMPOSE,          ///< Compose an email
-  MENU_DIALOG,           ///< Simple Dialog
   MENU_EDITOR,           ///< Text entry area
   MENU_FUZZY,            ///< Fuzzy searcher
   MENU_GENERIC,          ///< Generic selection list

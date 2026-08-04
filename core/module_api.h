@@ -26,8 +26,8 @@
  * Module API
  */
 
-#ifndef MUTT_CORE_MODULE_H
-#define MUTT_CORE_MODULE_H
+#ifndef MUTT_CORE_MODULE_API_H
+#define MUTT_CORE_MODULE_API_H
 
 #include <stdbool.h>
 
@@ -191,4 +191,4 @@ struct Module
   bool (*cleanup)(struct NeoMutt *n, void *data);
 };
 
-#endif /* MUTT_CORE_MODULE_H */
+#endif /* MUTT_CORE_MODULE_API_H */

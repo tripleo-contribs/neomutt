@@ -20,11 +20,11 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_CONFIG_LONG_H
-#define TEST_CONFIG_LONG_H
+#ifndef MUTT_TEST_CONFIG_LONG_H
+#define MUTT_TEST_CONFIG_LONG_H
 
 #include <stdbool.h>
 
 void config_long(void);
 
-#endif /* TEST_CONFIG_LONG_H */
+#endif /* MUTT_TEST_CONFIG_LONG_H */

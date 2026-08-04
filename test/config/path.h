@@ -20,11 +20,11 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_CONFIG_PATH_H
-#define TEST_CONFIG_PATH_H
+#ifndef MUTT_TEST_CONFIG_PATH_H
+#define MUTT_TEST_CONFIG_PATH_H
 
 #include <stdbool.h>
 
 void config_path(void);
 
-#endif /* TEST_CONFIG_PATH_H */
+#endif /* MUTT_TEST_CONFIG_PATH_H */

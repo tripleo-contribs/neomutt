@@ -50,17 +50,6 @@ struct MenuOpSeq
 };
 
 /**
- * struct MenuFunctionOp - Mapping between a function and an operation
- */
-struct MenuFunctionOp
-{
-  int         menu;       ///< Menu, e.g. #MENU_ALIAS
-  const char *function;   ///< Name of the function
-  int         op;         ///< Operation, e.g. OP_DELETE
-};
-ARRAY_HEAD(MenuFunctionOpArray, struct MenuFunctionOp);
-
-/**
  * @defgroup init_keys_api Initialise Key Bindings
  *
  * init_keys_t - Initialise Key Bindings

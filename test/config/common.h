@@ -21,8 +21,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_CONFIG_COMMON_H
-#define TEST_CONFIG_COMMON_H
+#ifndef MUTT_TEST_CONFIG_COMMON_H
+#define MUTT_TEST_CONFIG_COMMON_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -66,4 +66,4 @@ int      cs_str_string_get         (const struct ConfigSet *cs, const char *name
 int      cs_str_string_minus_equals(const struct ConfigSet *cs, const char *name, const char *value, struct Buffer *err);
 int      cs_str_string_plus_equals (const struct ConfigSet *cs, const char *name, const char *value, struct Buffer *err);
 
-#endif /* TEST_CONFIG_COMMON_H */
+#endif /* MUTT_TEST_CONFIG_COMMON_H */

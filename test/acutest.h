@@ -24,8 +24,8 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef ACUTEST_H
-#define ACUTEST_H
+#ifndef MUTT_TEST_ACUTEST_H
+#define MUTT_TEST_ACUTEST_H
 
 
 /* Try to auto-detect whether we need to disable C++ exception handling.
@@ -1991,4 +1991,4 @@ main(int argc, char** argv)
     }  /* extern "C" */
 #endif
 
-#endif  /* #ifndef ACUTEST_H */
+#endif  /* #ifndef MUTT_TEST_ACUTEST_H */

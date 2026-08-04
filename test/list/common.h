@@ -20,11 +20,11 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_LIST_COMMON_H
-#define TEST_LIST_COMMON_H
+#ifndef MUTT_TEST_LIST_COMMON_H
+#define MUTT_TEST_LIST_COMMON_H
 
 #include <stdbool.h>
 
 struct ListHead test_list_create(const char *items[], bool copy);
 
-#endif /* TEST_LIST_COMMON_H */
+#endif /* MUTT_TEST_LIST_COMMON_H */

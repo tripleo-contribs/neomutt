@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_FILE_COMMON_H
-#define TEST_FILE_COMMON_H
+#ifndef MUTT_TEST_FILE_COMMON_H
+#define MUTT_TEST_FILE_COMMON_H
 
 #include "acutest.h"
 #include <stdio.h>
@@ -42,4 +42,4 @@ struct TestValue
   int retval;
 };
 
-#endif /* TEST_FILE_COMMON_H */
+#endif /* MUTT_TEST_FILE_COMMON_H */

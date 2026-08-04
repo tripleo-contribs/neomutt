@@ -20,11 +20,11 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_COMPRESS_COMMON_H
-#define TEST_COMPRESS_COMMON_H
+#ifndef MUTT_TEST_COMPRESS_COMMON_H
+#define MUTT_TEST_COMPRESS_COMMON_H
 
 struct ComprOps;
 
 void compress_data_tests(const struct ComprOps *cops, short min_level, short max_level);
 
-#endif /* TEST_COMPRESS_COMMON_H */
+#endif /* MUTT_TEST_COMPRESS_COMMON_H */

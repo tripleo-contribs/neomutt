@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_MD5_COMMON_H
-#define TEST_MD5_COMMON_H
+#ifndef MUTT_TEST_MD5_COMMON_H
+#define MUTT_TEST_MD5_COMMON_H
 
 struct Md5TestData
 {
@@ -31,4 +31,4 @@ struct Md5TestData
 
 extern const struct Md5TestData md5_test_data[];
 
-#endif /* TEST_MD5_COMMON_H */
+#endif /* MUTT_TEST_MD5_COMMON_H */

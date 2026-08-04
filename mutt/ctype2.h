@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MUTT_MUTT_CTYPE_H
-#define MUTT_MUTT_CTYPE_H
+#ifndef MUTT_MUTT_CTYPE2_H
+#define MUTT_MUTT_CTYPE2_H
 
 #include <stdbool.h>
 
@@ -34,4 +34,4 @@ bool mutt_isxdigit(int arg);
 int  mutt_tolower (int arg);
 int  mutt_toupper (int arg);
 
-#endif /* MUTT_MUTT_CTYPE_H */
+#endif /* MUTT_MUTT_CTYPE2_H */

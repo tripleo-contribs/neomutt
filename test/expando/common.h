@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_EXPANDO_COMMON_H
-#define TEST_EXPANDO_COMMON_H
+#ifndef MUTT_TEST_EXPANDO_COMMON_H
+#define MUTT_TEST_EXPANDO_COMMON_H
 
 #include "expando/lib.h"
 
@@ -34,4 +34,4 @@ void check_node_text    (struct ExpandoNode *node, const char *text);
 
 struct ExpandoNode *parse_date(const char *str, struct ExpandoFormat *fmt, int did, int uid, ExpandoParserFlags flags, const char **parsed_until, struct ExpandoParseError *err);
 
-#endif /* TEST_EXPANDO_COMMON_H */
+#endif /* MUTT_TEST_EXPANDO_COMMON_H */

@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MUTT_ENVLIST_H
-#define MUTT_ENVLIST_H
+#ifndef MUTT_MUTT_ENVLIST_H
+#define MUTT_MUTT_ENVLIST_H
 
 #include <stdbool.h>
 
@@ -30,4 +30,4 @@ char **envlist_init (char  **envp);
 bool   envlist_set  (char ***envp, const char *name, const char *value, bool overwrite);
 bool   envlist_unset(char ***envp, const char *name);
 
-#endif /* MUTT_ENVLIST_H */
+#endif /* MUTT_MUTT_ENVLIST_H */

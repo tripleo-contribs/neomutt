@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TEST_RFC2047_COMMON_H
-#define TEST_RFC2047_COMMON_H
+#ifndef MUTT_TEST_RFC2047_COMMON_H
+#define MUTT_TEST_RFC2047_COMMON_H
 
 struct Rfc2047TestData
 {
@@ -32,4 +32,4 @@ struct Rfc2047TestData
 
 extern const struct Rfc2047TestData rfc2047_test_data[];
 
-#endif /* TEST_RFC2047_COMMON_H */
+#endif /* MUTT_TEST_RFC2047_COMMON_H */

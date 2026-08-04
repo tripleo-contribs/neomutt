@@ -21,8 +21,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MUTT_EXPANDO_PARSER_H
-#define MUTT_EXPANDO_PARSER_H
+#ifndef MUTT_EXPANDO_PARSE_H
+#define MUTT_EXPANDO_PARSE_H
 
 #include <stdbool.h>
 #include "node_text.h"
@@ -47,4 +47,4 @@ bool node_parse_many(struct ExpandoNode *node_cont, const char *str,
                      NodeTextTermFlags term_chars, const struct ExpandoDefinition *defs,
                      const char **parsed_until, struct ExpandoParseError *err);
 
-#endif /* MUTT_EXPANDO_PARSER_H */
+#endif /* MUTT_EXPANDO_PARSE_H */

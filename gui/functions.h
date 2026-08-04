@@ -20,8 +20,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef MUTT_FUNCTIONS_H
-#define MUTT_FUNCTIONS_H
+#ifndef MUTT_GUI_FUNCTIONS_H
+#define MUTT_GUI_FUNCTIONS_H
 
 struct NeoMutt;
 
@@ -29,4 +29,4 @@ struct SubMenu *generic_init_keys(struct NeoMutt *n);
 
 struct MenuDefinition *generic_get_menu_definition(void);
 
-#endif /* MUTT_FUNCTIONS_H */
+#endif /* MUTT_GUI_FUNCTIONS_H */
