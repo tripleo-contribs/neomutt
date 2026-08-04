@@ -325,6 +325,14 @@ static bool dlg_alias(struct AliasMenuData *mdata)
   } while ((rc != FR_DONE) && (rc != FR_CONTINUE));
   // ---------------------------------------------------------------------------
 
+  if (op == OP_EXIT)
+  {
+    ARRAY_FOREACH(avp, &mdata->ava)
+    {
+      avp->is_deleted = false;
+    }
+  }
+
   window_set_focus(old_focus);
   simple_dialog_free(&sdw.dlg);
   window_redraw(NULL);
