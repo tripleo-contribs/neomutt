@@ -634,6 +634,7 @@ static int op_change_directory(struct BrowserPrivateData *priv, const struct Key
        * Symlinks are always unraveled to keep code simple */
       if (mutt_path_realpath(buf) == 0)
       {
+        mutt_perror("%s", buf_string(buf));
         buf_pool_release(&buf);
         return FR_ERROR;
       }
