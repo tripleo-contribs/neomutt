@@ -303,7 +303,7 @@ bail:
   if (mutt_str_startswith(inbuf, "+ "))
   {
     snprintf(buf, bufsize, "*\r\n");
-    if (pop_query(adata, buf, bufsize) == -1)
+    if (pop_query(adata, buf, bufsize, NULL) == -1)
     {
       FREE(&buf);
       return POP_A_SOCKET;
@@ -372,7 +372,7 @@ static enum PopAuthRes pop_auth_apop(struct PopAccountData *adata, const char *m
   /* Send APOP command to server */
   snprintf(buf, sizeof(buf), "APOP %s %s\r\n", adata->conn->account.user, hash);
 
-  switch (pop_query(adata, buf, sizeof(buf)))
+  switch (pop_query(adata, buf, sizeof(buf), NULL))
   {
     case 0:
       return POP_A_SUCCESS;
@@ -401,7 +401,7 @@ static enum PopAuthRes pop_auth_user(struct PopAccountData *adata, const char *m
 
   char buf[1024] = { 0 };
   snprintf(buf, sizeof(buf), "USER %s\r\n", adata->conn->account.user);
-  int rc = pop_query(adata, buf, sizeof(buf));
+  int rc = pop_query(adata, buf, sizeof(buf), NULL);
 
   if (adata->cmd_user == 2)
   {
@@ -426,9 +426,9 @@ static enum PopAuthRes pop_auth_user(struct PopAccountData *adata, const char *m
   {
     snprintf(buf, sizeof(buf), "PASS %s\r\n", adata->conn->account.pass);
     const short c_debug_level = cs_subset_number(NeoMutt->sub, "debug_level");
-    rc = pop_query_d(adata, buf, sizeof(buf),
-                     /* don't print the password unless we're at the ungodly debugging level */
-                     (c_debug_level < MUTT_SOCK_LOG_FULL) ? "PASS *\r\n" : NULL);
+    rc = pop_query(adata, buf, sizeof(buf),
+                   /* don't print the password unless we're at the ungodly debugging level */
+                   (c_debug_level < MUTT_SOCK_LOG_FULL) ? "PASS *\r\n" : NULL);
   }
 
   switch (rc)
@@ -465,13 +465,13 @@ static enum PopAuthRes pop_auth_oauth(struct PopAccountData *adata, const char *
   mutt_str_asprintf(&auth_cmd, "AUTH OAUTHBEARER %s\r\n", oauthbearer);
   FREE(&oauthbearer);
 
-  int rc = pop_query_d(adata, auth_cmd, strlen(auth_cmd),
+  int rc = pop_query(adata, auth_cmd, strlen(auth_cmd),
 #ifdef DEBUG
-                       /* don't print the bearer token unless we're at the ungodly debugging level */
-                       (cs_subset_number(NeoMutt->sub, "debug_level") < MUTT_SOCK_LOG_FULL) ?
-                           "AUTH OAUTHBEARER *\r\n" :
+                     /* don't print the bearer token unless we're at the ungodly debugging level */
+                     (cs_subset_number(NeoMutt->sub, "debug_level") < MUTT_SOCK_LOG_FULL) ?
+                         "AUTH OAUTHBEARER *\r\n" :
 #endif
-                           NULL);
+                         NULL);
   FREE(&auth_cmd);
 
   switch (rc)

@@ -135,7 +135,7 @@ static int pop_read_header(struct PopAccountData *adata, struct Email *e)
   struct PopEmailData *edata = pop_edata_get(e);
 
   snprintf(buf, sizeof(buf), "LIST %d\r\n", edata->refno);
-  int rc = pop_query(adata, buf, sizeof(buf));
+  int rc = pop_query(adata, buf, sizeof(buf), NULL);
   if (rc == 0)
   {
     if (sscanf(buf, "+OK %d %zu", &index, &length) == 2)
@@ -578,7 +578,7 @@ void pop_fetch_mail(void)
 
   /* find out how many messages are in the mailbox. */
   mutt_str_copy(buf, "STAT\r\n", sizeof(buf));
-  rc = pop_query(adata, buf, sizeof(buf));
+  rc = pop_query(adata, buf, sizeof(buf), NULL);
   if (rc == -1)
     goto fail;
   if (rc == -2)
@@ -594,7 +594,7 @@ void pop_fetch_mail(void)
   if ((msgs > 0) && c_pop_last)
   {
     mutt_str_copy(buf, "LAST\r\n", sizeof(buf));
-    rc = pop_query(adata, buf, sizeof(buf));
+    rc = pop_query(adata, buf, sizeof(buf), NULL);
     if (rc == -1)
       goto fail;
     if (rc == 0)
@@ -654,7 +654,7 @@ void pop_fetch_mail(void)
     {
       /* delete the message on the server */
       snprintf(buf, sizeof(buf), "DELE %d\r\n", i);
-      rc = pop_query(adata, buf, sizeof(buf));
+      rc = pop_query(adata, buf, sizeof(buf), NULL);
     }
 
     if (rc == -1)
@@ -688,14 +688,14 @@ void pop_fetch_mail(void)
   {
     /* make sure no messages get deleted */
     mutt_str_copy(buf, "RSET\r\n", sizeof(buf));
-    if (pop_query(adata, buf, sizeof(buf)) == -1)
+    if (pop_query(adata, buf, sizeof(buf), NULL) == -1)
       goto fail;
   }
 
 finish:
   /* exit gracefully */
   mutt_str_copy(buf, "QUIT\r\n", sizeof(buf));
-  if (pop_query(adata, buf, sizeof(buf)) == -1)
+  if (pop_query(adata, buf, sizeof(buf), NULL) == -1)
     goto fail;
   mutt_socket_close(conn);
   pop_adata_free((void **) &adata);
@@ -921,7 +921,7 @@ static enum MxStatus pop_mbox_sync(struct Mailbox *m)
         j++;
         progress_update(progress, j, -1);
         snprintf(buf, sizeof(buf), "DELE %d\r\n", edata->refno);
-        rc = pop_query(adata, buf, sizeof(buf));
+        rc = pop_query(adata, buf, sizeof(buf), NULL);
         if (rc == 0)
         {
           mutt_bcache_del(adata->bcache, cache_id(edata->uid));
@@ -947,7 +947,7 @@ static enum MxStatus pop_mbox_sync(struct Mailbox *m)
     if (rc == 0)
     {
       mutt_str_copy(buf, "QUIT\r\n", sizeof(buf));
-      rc = pop_query(adata, buf, sizeof(buf));
+      rc = pop_query(adata, buf, sizeof(buf), NULL);
     }
 
     if (rc == 0)

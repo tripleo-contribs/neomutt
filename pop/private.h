@@ -106,11 +106,10 @@ void pop_apop_timestamp(struct PopAccountData *adata, char *buf);
 typedef int (*pop_fetch_t)(const char *str, void *data);
 
 /* pop_lib.c */
-#define pop_query(adata, buf, buflen) pop_query_d(adata, buf, buflen, NULL)
 int pop_parse_path(const char *path, struct ConnAccount *acct);
 int pop_connect(struct PopAccountData *adata);
 int pop_open_connection(struct PopAccountData *adata);
-int pop_query_d(struct PopAccountData *adata, char *buf, size_t buflen, char *msg);
+int pop_query(struct PopAccountData *adata, char *buf, size_t buflen, char *msg);
 int pop_fetch_data(struct PopAccountData *adata, const char *query,
                    struct Progress *progress, pop_fetch_t callback, void *data);
 int pop_reconnect(struct Mailbox *m);

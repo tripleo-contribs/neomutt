@@ -347,7 +347,7 @@ int pop_open_connection(struct PopAccountData *adata)
     if (adata->use_stls == 2)
     {
       mutt_str_copy(buf, "STLS\r\n", sizeof(buf));
-      rc = pop_query(adata, buf, sizeof(buf));
+      rc = pop_query(adata, buf, sizeof(buf), NULL);
       // Clear any data after the STLS acknowledgement
       mutt_socket_empty(adata->conn);
       if (rc == -1)
@@ -397,7 +397,7 @@ int pop_open_connection(struct PopAccountData *adata)
 
   /* get total size of mailbox */
   mutt_str_copy(buf, "STAT\r\n", sizeof(buf));
-  rc = pop_query(adata, buf, sizeof(buf));
+  rc = pop_query(adata, buf, sizeof(buf), NULL);
   if (rc == -1)
     goto err_conn;
   if (rc == -2)
@@ -435,13 +435,13 @@ void pop_logout(struct Mailbox *m)
     if (m->readonly)
     {
       mutt_str_copy(buf, "RSET\r\n", sizeof(buf));
-      rc = pop_query(adata, buf, sizeof(buf));
+      rc = pop_query(adata, buf, sizeof(buf), NULL);
     }
 
     if (rc != -1)
     {
       mutt_str_copy(buf, "QUIT\r\n", sizeof(buf));
-      rc = pop_query(adata, buf, sizeof(buf));
+      rc = pop_query(adata, buf, sizeof(buf), NULL);
     }
 
     if (rc < 0)
@@ -454,7 +454,7 @@ void pop_logout(struct Mailbox *m)
 }
 
 /**
- * pop_query_d - Send data from buffer and receive answer to the same buffer
+ * pop_query - Send data from buffer and receive answer to the same buffer
  * @param adata  POP Account data
  * @param buf    Buffer to send/store data
  * @param buflen Buffer length
@@ -463,7 +463,7 @@ void pop_logout(struct Mailbox *m)
  * @retval -1 Connection lost
  * @retval -2 Invalid command or execution error
  */
-int pop_query_d(struct PopAccountData *adata, char *buf, size_t buflen, char *msg)
+int pop_query(struct PopAccountData *adata, char *buf, size_t buflen, char *msg)
 {
   if (adata->status != POP_CONNECTED)
     return -1;
@@ -516,7 +516,7 @@ int pop_fetch_data(struct PopAccountData *adata, const char *query,
   size_t lenbuf = 0;
 
   mutt_str_copy(buf, query, sizeof(buf));
-  int rc = pop_query(adata, buf, sizeof(buf));
+  int rc = pop_query(adata, buf, sizeof(buf), NULL);
   if (rc < 0)
     return rc;
 
