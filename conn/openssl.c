@@ -101,9 +101,9 @@ static int ssl_socket_close(struct Connection *conn);
  */
 struct SslSockData
 {
-  SSL_CTX *sctx;        ///< SSL context
-  SSL *ssl;             ///< SSL socket
-  unsigned char isopen; ///< Is the socket open?
+  SSL_CTX *sctx; ///< SSL context
+  SSL *ssl;      ///< SSL socket
+  bool is_open;  ///< Is the socket open?
 };
 
 /**
@@ -246,10 +246,10 @@ static void ssl_err(struct SslSockData *data, int err)
     case SSL_ERROR_NONE:
       return;
     case SSL_ERROR_ZERO_RETURN:
-      data->isopen = 0;
+      data->is_open = false;
       break;
     case SSL_ERROR_SYSCALL:
-      data->isopen = 0;
+      data->is_open = false;
       break;
   }
 
@@ -1292,7 +1292,7 @@ static int ssl_setup(struct Connection *conn)
   if (ssl_negotiate(conn, sockdata(conn)))
     goto free_ssl;
 
-  sockdata(conn)->isopen = 1;
+  sockdata(conn)->is_open = true;
   conn->ssf = SSL_CIPHER_get_bits(SSL_get_current_cipher(sockdata(conn)->ssl), &maxbits);
 
   return 0;
@@ -1365,7 +1365,7 @@ retry:
     }
   }
 
-  data->isopen = 0;
+  data->is_open = false;
   ssl_err(data, rc);
   return rc;
 }
@@ -1410,7 +1410,7 @@ static int ssl_socket_close(struct Connection *conn)
 
   if (data)
   {
-    if (data->isopen && (raw_socket_poll(conn, 0) >= 0))
+    if (data->is_open && (raw_socket_poll(conn, 0) >= 0))
       SSL_shutdown(data->ssl);
 
     SSL_free(data->ssl);
