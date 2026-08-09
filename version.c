@@ -69,15 +69,15 @@ extern unsigned char configure_options[];
 /// CLI Version: Authors' copyrights
 static const char *Copyright =
     "Copyright (C) 2015-2026 Richard Russon <rich@flatcap.org>\n"
-    "Copyright (C) 2016-2025 Pietro Cerutti <gahr@gahr.ch>\n"
-    "Copyright (C) 2017-2019 Mehdi Abaakouk <sileht@sileht.net>\n"
-    "Copyright (C) 2018-2020 Federico Kircheis <federico.kircheis@gmail.com>\n"
+    "Copyright (C) 2016-2026 Pietro Cerutti <gahr@gahr.ch>\n"
+    "Copyright (C) 2023-2026 Dennis Schön <mail@dennis-schoen.de>\n"
+    "Copyright (C) 2023-2026 Alejandro Colomar <alx@kernel.org>\n"
+    "Copyright (C) 2017-2025 Marius Gedminas <marius@gedmin.as>\n"
+    "Copyright (C) 2022-2023 Whitney Cumber\n"
+    "Copyright (C) 2023-2026 Rayford Shireman\n"
     "Copyright (C) 2017-2022 Austin Ray <austin@austinray.io>\n"
-    "Copyright (C) 2023-2025 Dennis Schön <mail@dennis-schoen.de>\n"
-    "Copyright (C) 2016-2017 Damien Riegel <damien.riegel@gmail.com>\n"
-    "Copyright (C) 2023-2025 Rayford Shireman\n"
-    "Copyright (C) 2021-2023 David Purton <dcpurton@marshwiggle.net>\n"
-    "Copyright (C) 2020-2023 наб <nabijaczleweli@nabijaczleweli.xyz>\n";
+    "Copyright (C) 2017-2019 Mehdi Abaakouk <sileht@sileht.net>\n"
+    "Copyright (C) 2018-2020 Federico Kircheis <federico.kircheis@gmail.com>\n";
 
 /// CLI Version: Thanks
 static const char *Thanks = N_(

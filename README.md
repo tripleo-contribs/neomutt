@@ -96,14 +96,14 @@ see [LICENSE.md](LICENSE.md).
 
 The principal authors of NeoMutt are:
 
-- Copyright (C) 2015-2024 Richard Russon `<rich@flatcap.org>`
-- Copyright (C) 2016-2023 Pietro Cerutti `<gahr@gahr.ch>`
-- Copyright (C) 2017-2019 Mehdi Abaakouk `<sileht@sileht.net>`
-- Copyright (C) 2018-2020 Federico Kircheis `<federico.kircheis@gmail.com>`
-- Copyright (C) 2017-2022 Austin Ray `<austin@austinray.io>`
-- Copyright (C) 2023-2024 Dennis Schön `<mail@dennis-schoen.de>`
-- Copyright (C) 2016-2017 Damien Riegel `<damien.riegel@gmail.com>`
-- Copyright (C) 2023      Rayford Shireman
-- Copyright (C) 2021-2023 David Purton `<dcpurton@marshwiggle.net>`
-- Copyright (C) 2020-2023 наб `<nabijaczleweli@nabijaczleweli.xyz>`
+- Copyright (C) 2015-2026 Richard Russon (@flatcap)
+- Copyright (C) 2016-2026 Pietro Cerutti (@gahr)
+- Copyright (C) 2023-2026 Dennis Schön (@roccoblues)
+- Copyright (C) 2023-2026 Alejandro Colomar (@alejandro-colomar)
+- Copyright (C) 2017-2025 Marius Gedminas (@mgedmin)
+- Copyright (C) 2022-2023 Whitney Cumber (@whitney-cumber)
+- Copyright (C) 2023-2026 Rayford Shireman (@rayfordshire)
+- Copyright (C) 2017-2022 Austin Ray (@austin-ray)
+- Copyright (C) 2017-2019 Mehdi Abaakouk (@sileht)
+- Copyright (C) 2018-2020 Federico Kircheis (@fekir)
 
