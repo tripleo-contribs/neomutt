@@ -180,6 +180,8 @@ static const struct MenuFuncOp OpIndex[] = { /* map: index */
   { "previous-unread-mailbox",       OP_MAIN_PREV_UNREAD_MAILBOX },
   { "print-message",                 OP_PRINT },
   { "purge-message",                 OP_PURGE_MESSAGE },
+  { "purge-pattern",                 OP_PURGE_PATTERN },
+  { "purge-subthread",               OP_PURGE_SUBTHREAD },
   { "purge-thread",                  OP_PURGE_THREAD },
   { "quasi-delete",                  OP_MAIN_QUASI_DELETE },
   { "query",                         OP_QUERY },
@@ -866,6 +868,7 @@ static int op_main_change_thread(struct IndexFunctionData *fdata,
  * This function handles:
  * - OP_DELETE_SUBTHREAD
  * - OP_DELETE_THREAD
+ * - OP_PURGE_SUBTHREAD
  * - OP_PURGE_THREAD
  */
 static int op_delete_thread(struct IndexFunctionData *fdata, const struct KeyEvent *event)
@@ -882,7 +885,7 @@ static int op_delete_thread(struct IndexFunctionData *fdata, const struct KeyEve
     return FR_NO_ACTION;
 
   const int op = event->op;
-  const bool subthread = (op == OP_DELETE_SUBTHREAD);
+  const bool subthread = ((op == OP_DELETE_SUBTHREAD) || (op == OP_PURGE_SUBTHREAD));
   int rc = 0;
   struct EmailArray ea = ARRAY_HEAD_INITIALIZER;
   ea_add_selection_threads(&ea, shared->mailbox_view, shared->email,
@@ -895,7 +898,7 @@ static int op_delete_thread(struct IndexFunctionData *fdata, const struct KeyEve
     if (rc == -1)
       break;
 
-    if (op == OP_PURGE_THREAD)
+    if ((op == OP_PURGE_THREAD) || (op == OP_PURGE_SUBTHREAD))
     {
       rc = mutt_thread_set_flag(shared->mailbox, *ep, MUTT_PURGE, true, subthread);
       if (rc == -1)
@@ -1666,6 +1669,10 @@ static int op_main_open_thread(struct IndexFunctionData *fdata, const struct Key
 
 /**
  * op_main_delete_pattern - Delete messages matching a pattern - Implements ::index_function_t - @ingroup index_function_api
+ *
+ * This function handles:
+ * - OP_MAIN_DELETE_PATTERN
+ * - OP_PURGE_PATTERN
  */
 static int op_main_delete_pattern(struct IndexFunctionData *fdata, const struct KeyEvent *event)
 {
@@ -1678,7 +1685,10 @@ static int op_main_delete_pattern(struct IndexFunctionData *fdata, const struct 
   if (!check_acl(shared->mailbox, MUTT_ACL_DELETE, _("Can't delete messages")))
     return FR_ERROR;
 
+  const bool purge = (event->op == OP_PURGE_PATTERN);
   mutt_pattern_func(shared->mailbox_view, MUTT_DELETE, _("Delete messages matching: "));
+  if (purge)
+    mutt_pattern_func(shared->mailbox_view, MUTT_PURGE, NULL);
   menu_queue_redraw(priv->menu, MENU_REDRAW_INDEX);
 
   return FR_SUCCESS;
@@ -4006,6 +4016,8 @@ static const struct IndexFunction IndexFunctions[] = {
   { OP_PREV_ENTRY,                       op_prev_entry,               CHECK_IN_MAILBOX | CHECK_MSGCOUNT | CHECK_VISIBLE },
   { OP_PRINT,                            op_print,                    CHECK_IN_MAILBOX | CHECK_MSGCOUNT | CHECK_VISIBLE },
   { OP_PURGE_MESSAGE,                    op_delete,                   CHECK_IN_MAILBOX | CHECK_MSGCOUNT | CHECK_READONLY | CHECK_VISIBLE },
+  { OP_PURGE_PATTERN,                    op_main_delete_pattern,      CHECK_ATTACH | CHECK_IN_MAILBOX | CHECK_READONLY },
+  { OP_PURGE_SUBTHREAD,                  op_delete_thread,            CHECK_IN_MAILBOX | CHECK_MSGCOUNT | CHECK_READONLY | CHECK_VISIBLE },
   { OP_PURGE_THREAD,                     op_delete_thread,            CHECK_IN_MAILBOX | CHECK_MSGCOUNT | CHECK_READONLY | CHECK_VISIBLE },
   { OP_QUERY,                            op_query,                    CHECK_ATTACH },
   { OP_QUIT,                             op_quit,                     CHECK_NONE },

@@ -465,6 +465,10 @@ const char *opcodes_get_name       (int op);
   _fmt(OP_PRINT,                              N_("Print the current entry")) \
   /* L10N: Help for Index function: <purge-message> */ \
   _fmt(OP_PURGE_MESSAGE,                      N_("Delete the current entry, bypassing the trash folder")) \
+  /* L10N: Help for Index function: <purge-pattern> */ \
+  _fmt(OP_PURGE_PATTERN,                      N_("Delete non-hidden messages matching a pattern, bypassing the trash folder")) \
+  /* L10N: Help for Index function: <purge-subthread> */ \
+  _fmt(OP_PURGE_SUBTHREAD,                    N_("Delete all messages in subthread, bypassing the trash folder")) \
   /* L10N: Help for Index function: <purge-thread> */ \
   _fmt(OP_PURGE_THREAD,                       N_("Delete the current thread, bypassing the trash folder")) \
   /* L10N: Help for Index, Query function: <query> */ \
