@@ -11,9 +11,9 @@
 
    - All builds and tests are passing
 
-   - Added [doxygen code documentation](https://neomutt.org/dev/doxygen)
-     [syntax](http://www.stack.nl/~dimitri/doxygen/manual/docblocks.html)
+   - Added [doxygen code documentation](https://dev.neomutt.org/doxygen.html)
+     [syntax](https://www.doxygen.nl/manual/docblocks.html)
 
-   - Code follows the [style guide](https://neomutt.org/dev/code)
+   - Code follows the [style guide](https://dev.neomutt.org/code.html)
 
 * **What are the relevant issue numbers?**
