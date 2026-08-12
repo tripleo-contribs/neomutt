@@ -128,8 +128,8 @@ const char *opcodes_get_name       (int op);
   _fmt(OP_AUTOCRYPT_CREATE_ACCT,              N_("Create a new autocrypt account")) \
   /* L10N: Help for Autocrypt function: <delete-account> */ \
   _fmt(OP_AUTOCRYPT_DELETE_ACCT,              N_("Delete the current account")) \
-  /* L10N: Help for Autocrypt function: <toggle-active> */ \
-  _fmt(OP_AUTOCRYPT_TOGGLE_ACTIVE,            N_("Toggle the current account active/inactive")) \
+  /* L10N: Help for Autocrypt function: <toggle-enabled> */ \
+  _fmt(OP_AUTOCRYPT_TOGGLE_ENABLED,            N_("Toggle the current account enabled/disabled")) \
   /* L10N: Help for Autocrypt function: <toggle-prefer-encrypt> */ \
   _fmt(OP_AUTOCRYPT_TOGGLE_PREFER,            N_("Toggle the current account prefer-encrypt flag")) \
   /* L10N: Help for Compose function: <autocrypt-menu> */ \

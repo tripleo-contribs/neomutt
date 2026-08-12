@@ -50,8 +50,11 @@
 static const struct MenuFuncOp OpAutocrypt[] = { /* map: autocrypt account */
   { "create-account",                OP_AUTOCRYPT_CREATE_ACCT },
   { "delete-account",                OP_AUTOCRYPT_DELETE_ACCT },
-  { "toggle-active",                 OP_AUTOCRYPT_TOGGLE_ACTIVE },
+  { "toggle-enabled",                OP_AUTOCRYPT_TOGGLE_ENABLED },
   { "toggle-prefer-encrypt",         OP_AUTOCRYPT_TOGGLE_PREFER },
+
+  // Deprecated
+  { "toggle-active",                 OP_AUTOCRYPT_TOGGLE_ENABLED, MFF_DEPRECATED },
   { NULL, 0 }
 };
 
@@ -61,7 +64,7 @@ static const struct MenuFuncOp OpAutocrypt[] = { /* map: autocrypt account */
 static const struct MenuOpSeq AutocryptDefaultBindings[] = { /* map: autocrypt account */
   { OP_AUTOCRYPT_CREATE_ACCT,              "c" },
   { OP_AUTOCRYPT_DELETE_ACCT,              "D" },
-  { OP_AUTOCRYPT_TOGGLE_ACTIVE,            "a" },
+  { OP_AUTOCRYPT_TOGGLE_ENABLED,           "a" },
   { OP_AUTOCRYPT_TOGGLE_PREFER,            "p" },
   { 0, NULL }
 };
@@ -88,12 +91,12 @@ void autocrypt_init_keys(struct NeoMutt *n, struct SubMenu *sm_generic)
 }
 
 /**
- * toggle_active - Toggle whether an Autocrypt account is active
+ * toggle_enabled - Toggle whether an Autocrypt account is enabled
  * @param entry Menu Entry for the account
  * @retval true  Success
  * @retval false Error
  */
-static bool toggle_active(struct AccountEntry *entry)
+static bool toggle_enabled(struct AccountEntry *entry)
 {
   entry->account->enabled = !entry->account->enabled;
   if (mutt_autocrypt_db_account_update(entry->account) != 0)
@@ -167,9 +170,9 @@ static int op_autocrypt_delete_acct(struct AutocryptData *ad, const struct KeyEv
 }
 
 /**
- * op_autocrypt_toggle_active - Toggle the current account active/inactive - Implements ::autocrypt_function_t - @ingroup autocrypt_function_api
+ * op_autocrypt_toggle_enabled - Toggle the current account enabled/disabled - Implements ::autocrypt_function_t - @ingroup autocrypt_function_api
  */
-static int op_autocrypt_toggle_active(struct AutocryptData *ad, const struct KeyEvent *event)
+static int op_autocrypt_toggle_enabled(struct AutocryptData *ad, const struct KeyEvent *event)
 {
   if (!ad->menu->mdata)
     return FR_ERROR;
@@ -179,7 +182,7 @@ static int op_autocrypt_toggle_active(struct AutocryptData *ad, const struct Key
   if (!pentry)
     return 0;
 
-  if (!toggle_active((*pentry)))
+  if (!toggle_enabled((*pentry)))
     return FR_ERROR;
 
   menu_queue_redraw(ad->menu, MENU_REDRAW_FULL);
@@ -222,12 +225,12 @@ static int op_quit(struct AutocryptData *ad, const struct KeyEvent *event)
  */
 static const struct AutocryptFunction AutocryptFunctions[] = {
   // clang-format off
-  { OP_AUTOCRYPT_CREATE_ACCT,   op_autocrypt_create_acct },
-  { OP_AUTOCRYPT_DELETE_ACCT,   op_autocrypt_delete_acct },
-  { OP_AUTOCRYPT_TOGGLE_ACTIVE, op_autocrypt_toggle_active },
-  { OP_AUTOCRYPT_TOGGLE_PREFER, op_autocrypt_toggle_prefer },
-  { OP_EXIT,                    op_quit },
-  { OP_QUIT,                    op_quit },
+  { OP_AUTOCRYPT_CREATE_ACCT,    op_autocrypt_create_acct },
+  { OP_AUTOCRYPT_DELETE_ACCT,    op_autocrypt_delete_acct },
+  { OP_AUTOCRYPT_TOGGLE_ENABLED, op_autocrypt_toggle_enabled },
+  { OP_AUTOCRYPT_TOGGLE_PREFER,  op_autocrypt_toggle_prefer },
+  { OP_EXIT,                     op_quit },
+  { OP_QUIT,                     op_quit },
   { 0, NULL },
   // clang-format on
 };

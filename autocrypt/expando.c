@@ -57,14 +57,14 @@ static void autocrypt_enabled(const struct ExpandoNode *node, void *data,
   if (entry->account->enabled)
   {
     /* L10N: Autocrypt Account menu.
-           flag that an account is enabled/active */
-    buf_addstr(buf, _("active"));
+           flag that an account is enabled */
+    buf_addstr(buf, _("enabled"));
   }
   else
   {
     /* L10N: Autocrypt Account menu.
-           flag that an account is disabled/inactive */
-    buf_addstr(buf, _("inactive"));
+           flag that an account is disabled */
+    buf_addstr(buf, _("disabled"));
   }
 }
 
